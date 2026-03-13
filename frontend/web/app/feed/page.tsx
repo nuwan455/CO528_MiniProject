@@ -4,21 +4,24 @@ import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/form-validation";
 import { ApiResponse, PaginatedResult, PostRecord } from "@/lib/types";
 import { PostCard } from "@/components/features/feed/post-card";
 import { PostComposer } from "@/components/features/feed/post-composer";
+import { useToast } from "@/components/ui/toast-provider";
 import { useAuthStore } from "@/store/auth";
 
 export default function FeedPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
+  const { showToast } = useToast();
   const [posts, setPosts] = useState<PostRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
 
   const loadPosts = async () => {
     const { data } = await api.get<ApiResponse<PaginatedResult<PostRecord>>>("/posts");
-    setPosts(data.data.items);
+    setPosts(data.data.data.items);
   };
 
   useEffect(() => {
@@ -50,6 +53,9 @@ export default function FeedPage() {
           try {
             await api.post("/posts", { content, visibility: "PUBLIC" });
             await loadPosts();
+            showToast({ title: "Post published", description: "Your update is now live.", variant: "success" });
+          } catch (error) {
+            showToast({ title: "Post failed", description: getApiErrorMessage(error, "Unable to publish your post."), variant: "error" });
           } finally {
             setIsPosting(false);
           }
@@ -73,12 +79,21 @@ export default function FeedPage() {
               shares: post._count.shares,
             }}
             onLike={async () => {
-              await api.post(`/posts/${post.id}/like`);
-              await loadPosts();
+              try {
+                await api.post(`/posts/${post.id}/like`);
+                await loadPosts();
+              } catch (error) {
+                showToast({ title: "Like failed", description: getApiErrorMessage(error, "Unable to like this post."), variant: "error" });
+              }
             }}
             onShare={async () => {
-              await api.post(`/posts/${post.id}/share`);
-              await loadPosts();
+              try {
+                await api.post(`/posts/${post.id}/share`);
+                await loadPosts();
+                showToast({ title: "Post shared", description: "The post was shared successfully.", variant: "success" });
+              } catch (error) {
+                showToast({ title: "Share failed", description: getApiErrorMessage(error, "Unable to share this post."), variant: "error" });
+              }
             }}
           />
         ))}

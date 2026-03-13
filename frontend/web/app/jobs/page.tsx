@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/form-validation";
 import { ApiResponse, JobRecord, PaginatedResult } from "@/lib/types";
 import { JobCard } from "@/components/features/jobs/job-card";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast-provider";
 import { Search } from "lucide-react";
 
 export default function JobsPage() {
+  const { showToast } = useToast();
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [query, setQuery] = useState("");
   const [appliedIds, setAppliedIds] = useState<string[]>([]);
@@ -19,8 +22,8 @@ export default function JobsPage() {
       api.get<ApiResponse<Array<{ jobId: string }>>>("/jobs/my/applications"),
     ])
       .then(([jobsRes, appsRes]) => {
-        setJobs(jobsRes.data.data.items);
-        setAppliedIds(appsRes.data.data.map((item) => item.jobId));
+        setJobs(jobsRes.data.data.data.items);
+        setAppliedIds((appsRes.data.data.data || []).map((item) => item.jobId));
       })
       .catch(() => undefined);
   }, []);
@@ -69,14 +72,20 @@ export default function JobsPage() {
             }}
             onApply={async () => {
               if (appliedIds.includes(job.id)) {
+                showToast({ title: "Already applied", description: "You have already applied to this job.", variant: "info" });
                 return;
               }
 
-              await api.post(`/jobs/${job.id}/apply`, {
-                resumeUrl: "",
-                coverLetter: "Submitted through the DECP web portal.",
-              });
-              setAppliedIds((prev) => [...prev, job.id]);
+              try {
+                await api.post(`/jobs/${job.id}/apply`, {
+                  resumeUrl: "",
+                  coverLetter: "Submitted through the DECP web portal.",
+                });
+                setAppliedIds((prev) => [...prev, job.id]);
+                showToast({ title: "Application submitted", description: "Your job application was sent successfully.", variant: "success" });
+              } catch (error) {
+                showToast({ title: "Application failed", description: getApiErrorMessage(error, "Unable to apply for this job."), variant: "error" });
+              }
             }}
           />
         ))}

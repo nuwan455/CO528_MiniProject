@@ -16,7 +16,7 @@ export default function ResearchPage() {
   useEffect(() => {
     api
       .get<ApiResponse<PaginatedResult<ResearchProjectRecord>>>("/research/projects")
-      .then(({ data }) => setProjects(data.data.items))
+      .then(({ data }) => setProjects(data.data.data.items))
       .catch(() => undefined);
   }, []);
 

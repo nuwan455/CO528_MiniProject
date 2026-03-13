@@ -21,8 +21,10 @@ export default function ProfilePage() {
       api.get<ApiResponse<PaginatedResult<PostRecord>>>("/posts"),
     ])
       .then(([userRes, postsRes]) => {
-        updateUser(userRes.data.data);
-        setPosts(postsRes.data.data.items.filter((post) => post.author.id === userRes.data.data.id));
+        const currentUser = userRes.data.data.data;
+        const items = postsRes.data.data.data.items;
+        updateUser(currentUser);
+        setPosts(items.filter((post) => post.author.id === currentUser.id));
       })
       .catch(() => undefined);
   }, [updateUser]);

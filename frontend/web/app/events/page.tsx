@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/form-validation";
 import { ApiResponse, EventRecord, PaginatedResult } from "@/lib/types";
 import { EventCard } from "@/components/features/events/event-card";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast-provider";
 import { Search } from "lucide-react";
 
 export default function EventsPage() {
+  const { showToast } = useToast();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [query, setQuery] = useState("");
   const [rsvpedIds, setRsvpedIds] = useState<string[]>([]);
@@ -16,7 +19,7 @@ export default function EventsPage() {
   useEffect(() => {
     api
       .get<ApiResponse<PaginatedResult<EventRecord>>>("/events?upcoming=true")
-      .then(({ data }) => setEvents(data.data.items))
+      .then(({ data }) => setEvents(data.data.data.items))
       .catch(() => undefined);
   }, []);
 
@@ -62,8 +65,13 @@ export default function EventsPage() {
               host: event.createdBy.name,
             }}
             onRsvp={async () => {
-              await api.post(`/events/${event.id}/rsvp`, { status: "GOING" });
-              setRsvpedIds((prev) => (prev.includes(event.id) ? prev : [...prev, event.id]));
+              try {
+                await api.post(`/events/${event.id}/rsvp`, { status: "GOING" });
+                setRsvpedIds((prev) => (prev.includes(event.id) ? prev : [...prev, event.id]));
+                showToast({ title: "RSVP saved", description: "You are marked as going.", variant: "success" });
+              } catch (error) {
+                showToast({ title: "RSVP failed", description: getApiErrorMessage(error, "Unable to save your RSVP."), variant: "error" });
+              }
             }}
           />
         ))}

@@ -3,29 +3,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/form-validation";
 import { ApiResponse, ConversationRecord } from "@/lib/types";
 import { ChatWindow } from "@/components/features/messages/chat-window";
 import { ConversationList } from "@/components/features/messages/conversation-list";
 import { Card } from "@/components/ui/card";
+import { useToast } from "@/components/ui/toast-provider";
 import { useAuthStore } from "@/store/auth";
 
 export default function MessagesPage() {
   const { user } = useAuthStore();
+  const { showToast } = useToast();
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
 
   const loadConversations = async () => {
     const { data } = await api.get<ApiResponse<ConversationRecord[]>>("/messages/conversations");
-    setConversations(data.data);
-    if (!activeId && data.data[0]) {
-      setActiveId(data.data[0].id);
+    const items = data.data.data;
+    setConversations(items);
+    if (!activeId && items[0]) {
+      setActiveId(items[0].id);
     }
   };
 
   const loadConversation = async (conversationId: string) => {
     const { data } = await api.get<ApiResponse<ConversationRecord>>(`/messages/conversations/${conversationId}`);
-    setConversations((prev) => prev.map((item) => (item.id === conversationId ? data.data : item)));
+    setConversations((prev) => prev.map((item) => (item.id === conversationId ? data.data.data : item)));
   };
 
   useEffect(() => {
@@ -95,6 +99,9 @@ export default function MessagesPage() {
               try {
                 await api.post(`/messages/conversations/${activeId}/messages`, { content, messageType: "TEXT" });
                 await loadConversation(activeId);
+                showToast({ title: "Message sent", description: "Your message has been delivered.", variant: "success" });
+              } catch (error) {
+                showToast({ title: "Message failed", description: getApiErrorMessage(error, "Unable to send your message."), variant: "error" });
               } finally {
                 setIsSending(false);
               }

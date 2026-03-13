@@ -13,7 +13,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     api
       .get<ApiResponse<AnalyticsOverview>>("/analytics/overview")
-      .then(({ data }) => setOverview(data.data))
+      .then(({ data }) => setOverview(data.data.data))
       .catch(() => undefined);
   }, []);
 

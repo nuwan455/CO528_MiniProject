@@ -3,17 +3,20 @@
 import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/form-validation";
 import { ApiResponse, NotificationRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ui/toast-provider";
 import { Bell, CheckCircle2 } from "lucide-react";
 
 export default function NotificationsPage() {
+  const { showToast } = useToast();
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
 
   const loadNotifications = async () => {
     const { data } = await api.get<ApiResponse<NotificationRecord[]>>("/notifications");
-    setNotifications(data.data);
+    setNotifications(data.data.data);
   };
 
   useEffect(() => {
@@ -34,8 +37,13 @@ export default function NotificationsPage() {
           variant="outline"
           className="gap-2"
           onClick={async () => {
-            await api.patch("/notifications/read-all");
-            await loadNotifications();
+            try {
+              await api.patch("/notifications/read-all");
+              await loadNotifications();
+              showToast({ title: "Notifications updated", description: "All notifications were marked as read.", variant: "success" });
+            } catch (error) {
+              showToast({ title: "Update failed", description: getApiErrorMessage(error, "Unable to update notifications."), variant: "error" });
+            }
           }}
         >
           <CheckCircle2 className="h-4 w-4" />
@@ -58,8 +66,12 @@ export default function NotificationsPage() {
                     return;
                   }
 
-                  await api.patch(`/notifications/${notification.id}/read`);
-                  await loadNotifications();
+                  try {
+                    await api.patch(`/notifications/${notification.id}/read`);
+                    await loadNotifications();
+                  } catch (error) {
+                    showToast({ title: "Update failed", description: getApiErrorMessage(error, "Unable to mark notification as read."), variant: "error" });
+                  }
                 }}
               >
                 <div className="mt-1 h-10 w-10 rounded-full bg-primary/10" />

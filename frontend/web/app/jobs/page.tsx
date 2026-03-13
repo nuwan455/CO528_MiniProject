@@ -22,8 +22,8 @@ export default function JobsPage() {
       api.get<ApiResponse<Array<{ jobId: string }>>>("/jobs/my/applications"),
     ])
       .then(([jobsRes, appsRes]) => {
-        setJobs(jobsRes.data.data.data.items);
-        setAppliedIds((appsRes.data.data.data || []).map((item) => item.jobId));
+        setJobs(jobsRes.data.data.items);
+        setAppliedIds((appsRes.data.data || []).map((item) => item.jobId));
       })
       .catch(() => undefined);
   }, []);

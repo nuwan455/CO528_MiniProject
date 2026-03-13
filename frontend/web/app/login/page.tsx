@@ -14,12 +14,10 @@ import { useAuthStore } from "@/store/auth";
 
 interface LoginResponse {
   message: string;
-  data: {
-    user: WebUser;
-    tokens: {
-      accessToken: string;
-      refreshToken: string;
-    };
+  user: WebUser;
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
   };
 }
 
@@ -56,7 +54,7 @@ export default function LoginPage() {
         email: normalizedEmail,
         password: normalizedPassword,
       });
-      const { user, tokens } = data.data.data;
+      const { user, tokens } = data.data;
       localStorage.setItem("token", tokens.accessToken);
       localStorage.setItem("refreshToken", tokens.refreshToken);
       login(user, tokens.accessToken, tokens.refreshToken);

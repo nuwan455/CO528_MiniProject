@@ -21,7 +21,7 @@ export default function FeedPage() {
 
   const loadPosts = async () => {
     const { data } = await api.get<ApiResponse<PaginatedResult<PostRecord>>>("/posts");
-    setPosts(data.data.data.items);
+    setPosts(data.data.items);
   };
 
   useEffect(() => {

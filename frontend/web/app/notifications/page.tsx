@@ -16,7 +16,7 @@ export default function NotificationsPage() {
 
   const loadNotifications = async () => {
     const { data } = await api.get<ApiResponse<NotificationRecord[]>>("/notifications");
-    setNotifications(data.data.data);
+    setNotifications(data.data);
   };
 
   useEffect(() => {

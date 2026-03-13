@@ -19,7 +19,7 @@ export default function EventsPage() {
   useEffect(() => {
     api
       .get<ApiResponse<PaginatedResult<EventRecord>>>("/events?upcoming=true")
-      .then(({ data }) => setEvents(data.data.data.items))
+      .then(({ data }) => setEvents(data.data.items))
       .catch(() => undefined);
   }, []);
 

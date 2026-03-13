@@ -20,7 +20,7 @@ export default function MessagesPage() {
 
   const loadConversations = async () => {
     const { data } = await api.get<ApiResponse<ConversationRecord[]>>("/messages/conversations");
-    const items = data.data.data;
+    const items = data.data;
     setConversations(items);
     if (!activeId && items[0]) {
       setActiveId(items[0].id);
@@ -29,7 +29,7 @@ export default function MessagesPage() {
 
   const loadConversation = async (conversationId: string) => {
     const { data } = await api.get<ApiResponse<ConversationRecord>>(`/messages/conversations/${conversationId}`);
-    setConversations((prev) => prev.map((item) => (item.id === conversationId ? data.data.data : item)));
+    setConversations((prev) => prev.map((item) => (item.id === conversationId ? data.data : item)));
   };
 
   useEffect(() => {
@@ -72,13 +72,13 @@ export default function MessagesPage() {
             conversation={
               activeConversation
                 ? {
-                    id: activeConversation.id,
-                    name:
-                      activeConversation.title ||
-                      activeConversation.participants.find((participant) => participant.user.id !== user?.id)?.user.name ||
-                      "Conversation",
-                    status: `${activeConversation._count.messages} messages`,
-                  }
+                  id: activeConversation.id,
+                  name:
+                    activeConversation.title ||
+                    activeConversation.participants.find((participant) => participant.user.id !== user?.id)?.user.name ||
+                    "Conversation",
+                  status: `${activeConversation._count.messages} messages`,
+                }
                 : null
             }
             messages={

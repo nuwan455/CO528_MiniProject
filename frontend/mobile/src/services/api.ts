@@ -1,8 +1,25 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { ApiResponse, Comment, Conversation, Event, Job, JobApplication, Message, Notification, Post, ResearchProject, User } from '../types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://10.0.2.2:4000/api/v1';
+const resolveApiBaseUrl = () => {
+  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (envUrl) {
+    if (Platform.OS === 'android') {
+      return envUrl.replace('localhost', '10.0.2.2').replace('127.0.0.1', '10.0.2.2');
+    }
+    return envUrl;
+  }
+
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:4000/api/v1';
+  }
+
+  return 'http://localhost:4000/api/v1';
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const splitName = (name: string) => {
   const parts = name.trim().split(/\s+/);
@@ -88,6 +105,12 @@ const normalizeConversation = (conversation: any): Conversation => ({
   updatedAt: conversation.updatedAt || new Date().toISOString(),
 });
 
+const unwrapApiData = <T>(payload: any): T | undefined => {
+  if (!payload) return undefined;
+  if (payload.data !== undefined) return payload.data as T;
+  return payload as T;
+};
+
 export class ApiService {
   private client: AxiosInstance;
 
@@ -131,8 +154,9 @@ export class ApiService {
                 { refreshToken },
               );
 
-              if (response.data.success && response.data.data) {
-                const { accessToken, refreshToken: newRefreshToken } = response.data.data.tokens;
+              const refreshPayload = unwrapApiData<{ tokens: { accessToken: string; refreshToken: string } }>(response.data.data);
+              if (response.data.success && refreshPayload?.tokens) {
+                const { accessToken, refreshToken: newRefreshToken } = refreshPayload.tokens;
                 await AsyncStorage.setItem('accessToken', accessToken);
                 await AsyncStorage.setItem('refreshToken', newRefreshToken);
 
@@ -141,7 +165,11 @@ export class ApiService {
               }
             }
           } catch (refreshError) {
-            await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
+            await Promise.all([
+              AsyncStorage.removeItem('accessToken'),
+              AsyncStorage.removeItem('refreshToken'),
+              AsyncStorage.removeItem('user'),
+            ]);
             return Promise.reject(refreshError);
           }
         }
@@ -152,14 +180,15 @@ export class ApiService {
   }
 
   async login(email: string, password: string) {
-    const response = await this.client.post<ApiResponse<{ user: User; tokens: { accessToken: string; refreshToken: string } }>>('/auth/login', { email, password });
-    if (response.data.data) {
+    const response = await this.client.post<ApiResponse<any>>('/auth/login', { email, password });
+    const loginPayload = unwrapApiData<{ user: any; tokens: { accessToken: string; refreshToken: string } }>(response.data.data);
+    if (loginPayload?.user && loginPayload?.tokens) {
       return {
         ...response.data,
         data: {
-          user: normalizeUser((response.data.data as any).user),
-          accessToken: (response.data.data as any).tokens.accessToken,
-          refreshToken: (response.data.data as any).tokens.refreshToken,
+          user: normalizeUser(loginPayload.user),
+          accessToken: loginPayload.tokens.accessToken,
+          refreshToken: loginPayload.tokens.refreshToken,
         },
       };
     }
@@ -168,13 +197,14 @@ export class ApiService {
 
   async register(data: any) {
     const response = await this.client.post<ApiResponse<any>>('/auth/register', data);
-    if (response.data.data) {
+    const registerPayload = unwrapApiData<{ user: any; tokens: { accessToken: string; refreshToken: string } }>(response.data.data);
+    if (registerPayload?.user && registerPayload?.tokens) {
       return {
         ...response.data,
         data: {
-          user: normalizeUser(response.data.data.user),
-          accessToken: response.data.data.tokens.accessToken,
-          refreshToken: response.data.data.tokens.refreshToken,
+          user: normalizeUser(registerPayload.user),
+          accessToken: registerPayload.tokens.accessToken,
+          refreshToken: registerPayload.tokens.refreshToken,
         },
       };
     }
@@ -341,7 +371,7 @@ export class ApiService {
       ...response.data,
       data:
         response.data.data?.items?.map(
-          (project): ResearchProject => ({
+          (project: any): ResearchProject => ({
             id: project.id,
             title: project.title,
             description: project.description,

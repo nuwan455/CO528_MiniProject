@@ -21,7 +21,7 @@ async function bootstrap(): Promise<void> {
     prefix: `/${config.uploadDir}/`,
   });
   app.enableCors({
-    origin: [config.webClientUrl, config.mobileClientUrl],
+    origin: true,
     credentials: true,
   });
   app.useGlobalPipes(

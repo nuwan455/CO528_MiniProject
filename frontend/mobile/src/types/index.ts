@@ -1,0 +1,114 @@
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  role: 'STUDENT' | 'ALUMNI' | 'ADMIN';
+  bio?: string;
+  avatar?: string;
+  department?: string;
+  graduationYear?: number;
+  skills?: string[];
+  headline?: string;
+  createdAt?: string;
+}
+
+export interface Post {
+  id: string;
+  content: string;
+  author: User;
+  images?: string[];
+  likesCount: number;
+  commentsCount: number;
+  sharesCount: number;
+  isLiked: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface Comment {
+  id: string;
+  content: string;
+  author: User;
+  createdAt: string;
+}
+
+export interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  type: 'full-time' | 'part-time' | 'internship' | 'contract';
+  description: string;
+  requirements?: string[];
+  salary?: string;
+  postedBy: User;
+  applicationDeadline?: string;
+  createdAt: string;
+}
+
+export interface JobApplication {
+  id: string;
+  job: Job;
+  jobId?: string;
+  status: 'applied' | 'reviewing' | 'accepted' | 'rejected';
+  appliedAt: string;
+}
+
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  organizer: User;
+  attendeesCount: number;
+  isRsvped: boolean;
+  imageUrl?: string;
+  createdAt?: string;
+}
+
+export interface ResearchProject {
+  id: string;
+  title: string;
+  description: string;
+  lead: User;
+  collaborators: User[];
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  title?: string;
+  participants: User[];
+  lastMessage?: Message;
+  updatedAt: string;
+}
+
+export interface Message {
+  id: string;
+  content: string;
+  sender: User;
+  conversationId?: string;
+  createdAt: string;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  relatedUser?: User;
+  relatedId?: string;
+  createdAt: string;
+}
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+  errors?: string[];
+}

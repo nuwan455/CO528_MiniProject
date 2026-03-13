@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  :root {
+    /* Dark mode by default for the "calm dark surfaces" aesthetic */
+    --background: #0a0a0c; /* near-black graphite */
+    --foreground: #f8f9fa; /* soft white */
+
+    --card: #121214; /* charcoal / deep slate */
+    --card-foreground: #f8f9fa;
+
+    --popover: #121214;
+    --popover-foreground: #f8f9fa;
+
+    --primary: #6d28d9; /* electric blue-violet */
+    --primary-foreground: #ffffff;
+
+    --secondary: #1f1f22;
+    --secondary-foreground: #f8f9fa;
+
+    --muted: #1f1f22;
+    --muted-foreground: #a1a1aa; /* muted gray */
+
+    --accent: #27272a;
+    --accent-foreground: #f8f9fa;
+
+    --destructive: #ef4444; /* red */
+    --destructive-foreground: #f8f9fa;
+
+    --border: #27272a;
+    --input: #27272a;
+    --ring: #6d28d9;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}

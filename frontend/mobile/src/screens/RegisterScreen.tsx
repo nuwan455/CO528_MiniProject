@@ -49,7 +49,16 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
         headline: headline.trim(),
       });
     } catch (error: any) {
-      Alert.alert('Registration Failed', error.response?.data?.message || 'An error occurred');
+      const responseData = error?.response?.data;
+      const message =
+        responseData?.message ||
+        responseData?.data?.message ||
+        responseData?.errors?.[0] ||
+        (error?.message === 'Network Error'
+          ? 'Cannot reach backend API. Check EXPO_PUBLIC_API_BASE_URL and backend status.'
+          : error?.message) ||
+        'An error occurred';
+      Alert.alert('Registration Failed', message);
     } finally {
       setLoading(false);
     }

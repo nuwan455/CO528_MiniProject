@@ -1,8 +1,25 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { ApiResponse, Comment, Conversation, Event, Job, JobApplication, Message, Notification, Post, ResearchProject, User } from '../types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://10.0.2.2:4000/api/v1';
+const resolveApiBaseUrl = () => {
+  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (envUrl) {
+    if (Platform.OS === 'android') {
+      return envUrl.replace('localhost', '10.0.2.2').replace('127.0.0.1', '10.0.2.2');
+    }
+    return envUrl;
+  }
+
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:4000/api/v1';
+  }
+
+  return 'http://localhost:4000/api/v1';
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const splitName = (name: string) => {
   const parts = name.trim().split(/\s+/);
@@ -148,7 +165,11 @@ export class ApiService {
               }
             }
           } catch (refreshError) {
-            await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'user']);
+            await Promise.all([
+              AsyncStorage.removeItem('accessToken'),
+              AsyncStorage.removeItem('refreshToken'),
+              AsyncStorage.removeItem('user'),
+            ]);
             return Promise.reject(refreshError);
           }
         }
@@ -350,7 +371,7 @@ export class ApiService {
       ...response.data,
       data:
         response.data.data?.items?.map(
-          (project): ResearchProject => ({
+          (project: any): ResearchProject => ({
             id: project.id,
             title: project.title,
             description: project.description,

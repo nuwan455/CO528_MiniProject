@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   Home,
@@ -11,7 +11,7 @@ import {
   MessageSquare,
   Bell,
   BarChart2,
-  Settings,
+  LogOut,
   Shield,
   User,
 } from 'lucide-react';
@@ -28,8 +28,14 @@ const navItems = [
 ];
 
 export function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
+
+  const handleSignOut = () => {
+    logout();
+    router.push('/login');
+  };
 
   return (
     <aside className="hidden md:flex flex-col w-64 border-r border-border bg-card/50 backdrop-blur-xl h-full">
@@ -79,7 +85,7 @@ export function Sidebar() {
         )}
       </nav>
 
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-2">
         <Link
           href="/profile"
           className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent transition-colors"
@@ -92,6 +98,14 @@ export function Sidebar() {
             <p className="text-xs text-muted-foreground truncate">{user?.role || 'Visitor'}</p>
           </div>
         </Link>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sign out
+        </button>
       </div>
     </aside>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/types';
 import { useAuthStore } from '../store/authStore';
@@ -12,27 +12,41 @@ type RegisterScreenProps = {
 };
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'STUDENT' | 'ALUMNI' | 'ADMIN'>('STUDENT');
+  const [department, setDepartment] = useState('Computer Science');
+  const [batchYear, setBatchYear] = useState(String(new Date().getFullYear() + 1));
+  const [headline, setHeadline] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const register = useAuthStore((state) => state.register);
 
   const handleRegister = async () => {
-    if (!firstName || !lastName || !email || !password) {
+    if (!fullName || !email || !password || !department || !batchYear) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
+    const parsedBatchYear = Number(batchYear);
+    if (Number.isNaN(parsedBatchYear) || parsedBatchYear < 1900 || parsedBatchYear > 2100) {
+      Alert.alert('Error', 'Please enter a valid batch year');
+      return;
+    }
+
+    const normalizedName = fullName.trim().replace(/\s+/g, ' ');
+    const normalizedEmail = email.trim().toLowerCase();
+
     setLoading(true);
     try {
       await register({
-        name: `${firstName} ${lastName}`.trim(),
-        email,
+        name: normalizedName,
+        email: normalizedEmail,
         password,
-        role: 'STUDENT',
-        department: 'Computer Science',
+        role,
+        department: department.trim(),
+        batchYear: parsedBatchYear,
+        headline: headline.trim(),
       });
     } catch (error: any) {
       Alert.alert('Registration Failed', error.response?.data?.message || 'An error occurred');
@@ -56,16 +70,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
 
             <View style={styles.form}>
               <TextInput
-                label="First Name"
-                value={firstName}
-                onChangeText={setFirstName}
-                placeholder="John"
-              />
-              <TextInput
-                label="Last Name"
-                value={lastName}
-                onChangeText={setLastName}
-                placeholder="Doe"
+                label="Full name"
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="John Doe"
               />
               <TextInput
                 label="Email"
@@ -74,6 +82,42 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
                 placeholder="your.email@example.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
+              />
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Role</Text>
+                <View style={styles.roleGroup}>
+                  {(['STUDENT', 'ALUMNI', 'ADMIN'] as const).map((option) => {
+                    const selected = role === option;
+                    return (
+                      <TouchableOpacity
+                        key={option}
+                        style={[styles.roleButton, selected && styles.roleButtonSelected]}
+                        onPress={() => setRole(option)}
+                      >
+                        <Text style={[styles.roleButtonText, selected && styles.roleButtonTextSelected]}>{option}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+              <TextInput
+                label="Department"
+                value={department}
+                onChangeText={setDepartment}
+                placeholder="Computer Science"
+              />
+              <TextInput
+                label="Batch Year"
+                value={batchYear}
+                onChangeText={setBatchYear}
+                placeholder={String(new Date().getFullYear() + 1)}
+                keyboardType="number-pad"
+              />
+              <TextInput
+                label="Headline"
+                value={headline}
+                onChangeText={setHeadline}
+                placeholder="Aspiring software engineer"
               />
               <TextInput
                 label="Password"
@@ -132,6 +176,41 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: spacing.base,
+  },
+  fieldGroup: {
+    marginBottom: spacing.base,
+  },
+  fieldLabel: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: '500',
+    marginBottom: spacing.xs,
+  },
+  roleGroup: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  roleButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleButtonSelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  roleButtonText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: '600',
+  },
+  roleButtonTextSelected: {
+    color: colors.textPrimary,
   },
   footer: {
     flexDirection: 'row',

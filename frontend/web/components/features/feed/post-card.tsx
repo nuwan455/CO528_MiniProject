@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { resolveApiAssetUrl } from "@/lib/api";
-import { Heart, MessageCircle, MoreHorizontal, Send, Share2 } from "lucide-react";
+import { Heart, MessageCircle, Send, Share2, Trash2 } from "lucide-react";
 
 interface PostCardProps {
   post: {
@@ -43,6 +43,9 @@ interface PostCardProps {
   onToggleComments?: () => void;
   onSubmitComment?: () => void;
   onShare?: () => void;
+  canDelete?: boolean;
+  isDeleting?: boolean;
+  onDelete?: () => void;
 }
 
 export function PostCard({
@@ -57,6 +60,9 @@ export function PostCard({
   onToggleComments,
   onSubmitComment,
   onShare,
+  canDelete = false,
+  isDeleting = false,
+  onDelete,
 }: PostCardProps) {
   return (
     <Card className="mb-6 overflow-hidden border-border/50 bg-card/80 backdrop-blur-sm transition-all hover:shadow-md">
@@ -83,10 +89,19 @@ export function PostCard({
             ) : null}
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-          <MoreHorizontal className="h-4 w-4" />
-          <span className="sr-only">More options</span>
-        </Button>
+        {canDelete ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={isDeleting}
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="sr-only">{isDeleting ? "Deleting post" : "Delete post"}</span>
+          </Button>
+        ) : null}
       </CardHeader>
       <CardContent>
         {post.content ? (

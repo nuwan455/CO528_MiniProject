@@ -3,30 +3,38 @@
 import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/form-validation";
 import { ApiResponse, normalizePostRecord, PaginatedResult, PostRecord, WebUser } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PostCard } from "@/components/features/feed/post-card";
+import { useToast } from "@/components/ui/toast-provider";
 import { useAuthStore } from "@/store/auth";
 import { Briefcase, GraduationCap, Link as LinkIcon, MapPin } from "lucide-react";
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuthStore();
+  const { showToast } = useToast();
   const [posts, setPosts] = useState<PostRecord[]>([]);
+  const [postToDelete, setPostToDelete] = useState<PostRecord | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([
+  const loadProfile = async () => {
+    const [userRes, postsRes] = await Promise.all([
       api.get<ApiResponse<WebUser>>("/users/me"),
       api.get<ApiResponse<PaginatedResult<PostRecord>>>("/posts"),
-    ])
-      .then(([userRes, postsRes]) => {
-        const currentUser = userRes.data.data;
-        const items = postsRes.data.data.items.map((post) => normalizePostRecord(post));
-        updateUser(currentUser);
-        setPosts(items.filter((post) => post.author.id === currentUser.id));
-      })
-      .catch(() => undefined);
+    ]);
+
+    const currentUser = userRes.data.data;
+    const items = postsRes.data.data.items.map((post) => normalizePostRecord(post));
+    updateUser(currentUser);
+    setPosts(items.filter((post) => post.author.id === currentUser.id));
+  };
+
+  useEffect(() => {
+    loadProfile().catch(() => undefined);
   }, [updateUser]);
 
   if (!user) {
@@ -124,6 +132,9 @@ export default function ProfilePage() {
                   isLiked: post.interactions.isLiked,
                   isShared: post.interactions.isShared,
                 }}
+                canDelete
+                isDeleting={deletingPostId === post.id}
+                onDelete={() => setPostToDelete(post)}
               />
             ))}
           </div>
@@ -134,6 +145,43 @@ export default function ProfilePage() {
           </div>
         </TabsContent>
       </Tabs>
+      <ConfirmDialog
+        open={Boolean(postToDelete)}
+        title="Delete post?"
+        description={
+          postToDelete
+            ? "This will permanently remove your post from your profile and the department feed."
+            : ""
+        }
+        confirmLabel="Delete Post"
+        isConfirming={Boolean(postToDelete && deletingPostId === postToDelete.id)}
+        onCancel={() => setPostToDelete(null)}
+        onConfirm={async () => {
+          if (!postToDelete) {
+            return;
+          }
+
+          setDeletingPostId(postToDelete.id);
+          try {
+            await api.delete(`/posts/${postToDelete.id}`);
+            await loadProfile();
+            showToast({
+              title: "Post deleted",
+              description: "Your post has been removed.",
+              variant: "success",
+            });
+            setPostToDelete(null);
+          } catch (error) {
+            showToast({
+              title: "Delete failed",
+              description: getApiErrorMessage(error, "Unable to delete this post."),
+              variant: "error",
+            });
+          } finally {
+            setDeletingPostId((current) => (current === postToDelete.id ? null : current));
+          }
+        }}
+      />
     </div>
   );
 }

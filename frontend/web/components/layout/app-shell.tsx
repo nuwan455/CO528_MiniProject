@@ -1,16 +1,50 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Sidebar } from './sidebar';
 import { Topbar } from './topbar';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/auth';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
+  const { hasHydrated, isAuthenticated } = useAuthStore();
   const isAuthPage = pathname === '/login' || pathname === '/register';
 
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (isAuthPage && isAuthenticated) {
+      router.replace('/feed');
+      return;
+    }
+
+    if (!isAuthPage && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [hasHydrated, isAuthPage, isAuthenticated, router]);
+
+  if (!hasHydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        Loading...
+      </div>
+    );
+  }
+
   if (isAuthPage) {
+    if (isAuthenticated) {
+      return null;
+    }
+
     return <>{children}</>;
+  }
+
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (

@@ -10,6 +10,7 @@ import { PostCard } from '../components/PostCard';
 import { TextInput } from '../components/TextInput';
 import { Button } from '../components/Button';
 import { Avatar } from '../components/Avatar';
+import { useAuthStore } from '../store/authStore';
 import { colors, spacing, typography } from '../theme/tokens';
 import { formatDistanceToNow } from '../utils/date';
 
@@ -18,10 +19,11 @@ type PostDetailScreenProps = {
   route: RouteProp<MainStackParamList, 'PostDetail'>;
 };
 
-export const PostDetailScreen: React.FC<PostDetailScreenProps> = ({ route }) => {
+export const PostDetailScreen: React.FC<PostDetailScreenProps> = ({ navigation, route }) => {
   const { postId } = route.params;
   const [comment, setComment] = useState('');
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
 
   const { data: post } = useQuery({
     queryKey: ['post', postId],
@@ -83,10 +85,42 @@ export const PostDetailScreen: React.FC<PostDetailScreenProps> = ({ route }) => 
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (targetPostId: string) => api.deletePost(targetPostId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['posts'] }),
+        queryClient.invalidateQueries({ queryKey: ['post', postId] }),
+      ]);
+      navigation.goBack();
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to delete post');
+    },
+  });
+
   const handleComment = () => {
     if (comment.trim()) {
       commentMutation.mutate(comment);
     }
+  };
+
+  const handleDelete = (targetPost: Post) => {
+    Alert.alert(
+      'Delete post',
+      'This will permanently remove your post from the feed.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(targetPost.id),
+        },
+      ],
+    );
   };
 
   const renderComment = ({ item }: { item: Comment }) => (
@@ -121,6 +155,9 @@ export const PostDetailScreen: React.FC<PostDetailScreenProps> = ({ route }) => 
               onLike={() => likeMutation.mutate(post)}
               onComment={() => {}}
               onShare={() => shareMutation.mutate(post)}
+              canDelete={post.author.id === user?.id}
+              isDeleting={deleteMutation.isPending}
+              onDelete={() => handleDelete(post)}
             />
           </View>
         }
@@ -136,6 +173,7 @@ export const PostDetailScreen: React.FC<PostDetailScreenProps> = ({ route }) => 
           value={comment}
           onChangeText={setComment}
           placeholder="Write a comment..."
+          containerStyle={styles.inputWrapper}
           style={styles.input}
         />
         <Button title="Post" onPress={handleComment} loading={commentMutation.isPending} size="sm" />
@@ -200,8 +238,13 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     alignItems: 'center',
   },
-  input: {
+  inputWrapper: {
     flex: 1,
     marginBottom: 0,
+  },
+  input: {
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.borderLight,
+    minHeight: 44,
   },
 });

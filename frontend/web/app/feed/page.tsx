@@ -15,6 +15,7 @@ import {
 } from "@/lib/types";
 import { PostCard } from "@/components/features/feed/post-card";
 import { PostComposer } from "@/components/features/feed/post-composer";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAuthStore } from "@/store/auth";
 
@@ -42,8 +43,7 @@ function extractComments(apiData: ApiResponse<PostCommentRecord[]>["data"]): Pos
 }
 
 export default function FeedPage() {
-  const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, hasHydrated, user } = useAuthStore();
   const { showToast } = useToast();
   const [posts, setPosts] = useState<PostRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +53,8 @@ export default function FeedPage() {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [loadingCommentsByPost, setLoadingCommentsByPost] = useState<Record<string, boolean>>({});
   const [submittingCommentsByPost, setSubmittingCommentsByPost] = useState<Record<string, boolean>>({});
+  const [postToDelete, setPostToDelete] = useState<PostRecord | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   const loadPosts = async () => {
     const { data } = await api.get<ApiResponse<PaginatedResult<PostRecord>>>("/posts");
@@ -70,17 +72,16 @@ export default function FeedPage() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login");
+    if (!hasHydrated || !isAuthenticated) {
       return;
     }
 
     loadPosts()
       .catch(() => undefined)
       .finally(() => setLoading(false));
-  }, [isAuthenticated, router]);
+  }, [hasHydrated, isAuthenticated]);
 
-  if (!isAuthenticated) {
+  if (!hasHydrated || !isAuthenticated) {
     return null;
   }
 
@@ -145,6 +146,8 @@ export default function FeedPage() {
               isLiked: post.interactions.isLiked,
               isShared: post.interactions.isShared,
             }}
+            canDelete={post.author.id === user?.id}
+            isDeleting={deletingPostId === post.id}
             comments={(commentsByPost[post.id] ?? []).map((comment) => ({
               id: comment.id,
               content: comment.content,
@@ -236,11 +239,64 @@ export default function FeedPage() {
                 showToast({ title: "Share failed", description: getApiErrorMessage(error, "Unable to share this post."), variant: "error" });
               }
             }}
+            onDelete={() => setPostToDelete(post)}
           />
         ))}
       </div>
 
       {!loading && posts.length === 0 ? <p className="text-sm text-muted-foreground">No posts yet.</p> : null}
+      <ConfirmDialog
+        open={Boolean(postToDelete)}
+        title="Delete post?"
+        description={
+          postToDelete
+            ? "This will permanently remove your post from the department feed. This action cannot be undone."
+            : ""
+        }
+        confirmLabel="Delete Post"
+        isConfirming={Boolean(postToDelete && deletingPostId === postToDelete.id)}
+        onCancel={() => setPostToDelete(null)}
+        onConfirm={async () => {
+          if (!postToDelete) {
+            return;
+          }
+
+          setDeletingPostId(postToDelete.id);
+          try {
+            await api.delete(`/posts/${postToDelete.id}`);
+            setCommentsByPost((current) => {
+              const next = { ...current };
+              delete next[postToDelete.id];
+              return next;
+            });
+            setOpenCommentsByPost((current) => {
+              const next = { ...current };
+              delete next[postToDelete.id];
+              return next;
+            });
+            setCommentDrafts((current) => {
+              const next = { ...current };
+              delete next[postToDelete.id];
+              return next;
+            });
+            await loadPosts();
+            showToast({
+              title: "Post deleted",
+              description: "Your post has been removed from the feed.",
+              variant: "success",
+            });
+            setPostToDelete(null);
+          } catch (error) {
+            showToast({
+              title: "Delete failed",
+              description: getApiErrorMessage(error, "Unable to delete this post."),
+              variant: "error",
+            });
+          } finally {
+            setDeletingPostId((current) => (current === postToDelete.id ? null : current));
+          }
+        }}
+      />
     </div>
   );
 }

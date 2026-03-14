@@ -12,6 +12,9 @@ interface PostCardProps {
   onLike: () => void;
   onComment: () => void;
   onShare: () => void;
+  canDelete?: boolean;
+  isDeleting?: boolean;
+  onDelete?: () => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -20,6 +23,9 @@ export const PostCard: React.FC<PostCardProps> = ({
   onLike,
   onComment,
   onShare,
+  canDelete = false,
+  isDeleting = false,
+  onDelete,
 }) => {
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.95}>
@@ -31,6 +37,23 @@ export const PostCard: React.FC<PostCardProps> = ({
           </Text>
           <Text style={styles.timestamp}>{formatDistanceToNow(post.createdAt)}</Text>
         </View>
+        {canDelete ? (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={(event) => {
+              event.stopPropagation();
+              onDelete?.();
+            }}
+            disabled={isDeleting}
+            hitSlop={10}
+          >
+            <Ionicons
+              name={isDeleting ? 'hourglass-outline' : 'trash-outline'}
+              size={18}
+              color={colors.danger}
+            />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <Text style={styles.content}>{post.content}</Text>
@@ -101,6 +124,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     marginBottom: spacing.md,
+    alignItems: 'flex-start',
   },
   headerInfo: {
     marginLeft: spacing.md,
@@ -116,6 +140,10 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     fontSize: typography.fontSize.xs,
     marginTop: 2,
+  },
+  deleteButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
   },
   content: {
     color: colors.textPrimary,

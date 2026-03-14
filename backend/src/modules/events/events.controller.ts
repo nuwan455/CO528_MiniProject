@@ -16,7 +16,7 @@ import { EventsService } from './events.service';
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
-  @Roles(Role.ADMIN)
+  @Roles(Role.ALUMNI, Role.ADMIN)
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateEventDto) {
     return this.eventsService.create(user, dto);
@@ -32,13 +32,13 @@ export class EventsController {
     return this.eventsService.findOne(id);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(Role.ALUMNI, Role.ADMIN)
   @Patch(':id')
   update(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() dto: UpdateEventDto) {
     return this.eventsService.update(id, user, dto);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(Role.ALUMNI, Role.ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.eventsService.remove(id, user);

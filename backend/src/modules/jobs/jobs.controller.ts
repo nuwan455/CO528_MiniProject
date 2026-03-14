@@ -43,13 +43,13 @@ export class JobsController {
     return this.jobsService.findOne(id);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(Role.ALUMNI, Role.ADMIN)
   @Patch(':id')
   update(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() dto: UpdateJobDto) {
     return this.jobsService.update(id, user, dto);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(Role.ALUMNI, Role.ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.jobsService.remove(id, user);

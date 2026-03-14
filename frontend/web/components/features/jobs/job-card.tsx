@@ -19,11 +19,26 @@ interface JobCardProps {
     actionDisabled?: boolean;
     actionVariant?: "default" | "outline" | "secondary";
     helperText?: string;
+    canManage?: boolean;
+    canViewApplications?: boolean;
   };
   onApply?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onViewApplications?: () => void;
+  isDeleting?: boolean;
+  isViewingApplications?: boolean;
 }
 
-export function JobCard({ job, onApply }: JobCardProps) {
+export function JobCard({
+  job,
+  onApply,
+  onEdit,
+  onDelete,
+  onViewApplications,
+  isDeleting = false,
+  isViewingApplications = false,
+}: JobCardProps) {
   return (
     <Card className="group flex h-full flex-col border-border/50 bg-card/80 backdrop-blur-sm transition-all hover:border-primary/50 hover:shadow-md">
       <CardHeader className="pb-4">
@@ -65,6 +80,7 @@ export function JobCard({ job, onApply }: JobCardProps) {
       <CardFooter className="pt-0">
         <div className="w-full space-y-2">
           <Button
+            type="button"
             className="w-full font-medium tracking-wide"
             variant={job.actionVariant ?? (job.isApplied ? "outline" : "default")}
             onClick={onApply}
@@ -72,6 +88,21 @@ export function JobCard({ job, onApply }: JobCardProps) {
           >
             {job.actionLabel ?? (job.isApplied ? "Applied Successfully" : "Apply Now")}
           </Button>
+          {job.canViewApplications ? (
+            <Button type="button" variant="secondary" className="w-full" onClick={onViewApplications} disabled={isViewingApplications}>
+              {isViewingApplications ? "Loading applications..." : `View Applications (${job.applications})`}
+            </Button>
+          ) : null}
+          {job.canManage ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant="outline" onClick={onEdit}>
+                Edit
+              </Button>
+              <Button type="button" variant="destructive" onClick={onDelete} disabled={isDeleting}>
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          ) : null}
           {job.helperText ? <p className="text-xs text-muted-foreground">{job.helperText}</p> : null}
         </div>
       </CardFooter>

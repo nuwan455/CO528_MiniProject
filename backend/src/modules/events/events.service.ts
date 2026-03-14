@@ -25,6 +25,34 @@ export class EventsService {
       },
       include: this.eventInclude,
     });
+
+    const recipients =
+      user.role === Role.ADMIN
+        ? await this.prisma.user.findMany({
+            where: { id: { not: user.sub } },
+            select: { id: true },
+          })
+        : await this.prisma.user.findMany({
+            where: { role: Role.ADMIN, id: { not: user.sub } },
+            select: { id: true },
+          });
+
+    if (recipients.length) {
+      await this.prisma.notification.createMany({
+        data: recipients.map((recipient) => ({
+          userId: recipient.id,
+          type: 'EVENT',
+          title: user.role === Role.ADMIN ? 'New department event published' : 'New event submitted',
+          body:
+            user.role === Role.ADMIN
+              ? `"${event.title}" is now available for the department community.`
+              : `An alumni event, "${event.title}", was created and is ready for review.`,
+          relatedEntityType: 'EVENT',
+          relatedEntityId: event.id,
+        })),
+      });
+    }
+
     return { message: 'Event created successfully', data: event };
   }
 
@@ -84,11 +112,40 @@ export class EventsService {
   }
 
   async rsvp(id: string, user: AuthUser, dto: RsvpEventDto) {
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+      select: { id: true, title: true, createdByUserId: true },
+    });
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
     const rsvp = await this.prisma.eventRSVP.upsert({
       where: { eventId_userId: { eventId: id, userId: user.sub } },
       update: { status: dto.status },
       create: { eventId: id, userId: user.sub, status: dto.status },
     });
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: Role.ADMIN, id: { not: user.sub } },
+      select: { id: true },
+    });
+    const recipientIds = Array.from(new Set([event.createdByUserId, ...admins.map((admin) => admin.id)])).filter(
+      (recipientId) => recipientId !== user.sub,
+    );
+
+    if (recipientIds.length) {
+      await this.prisma.notification.createMany({
+        data: recipientIds.map((recipientId) => ({
+          userId: recipientId,
+          type: 'EVENT',
+          title: 'New RSVP received',
+          body: `${user.email} responded "${dto.status.replaceAll('_', ' ')}" to "${event.title}".`,
+          relatedEntityType: 'EVENT',
+          relatedEntityId: id,
+        })),
+      });
+    }
 
     return { message: 'RSVP saved successfully', data: rsvp };
   }

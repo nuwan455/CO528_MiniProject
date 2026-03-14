@@ -1,26 +1,44 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
+import { useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/form-validation";
 import { canApplyJobs, canPostJobs, isAdmin } from "@/lib/roles";
-import { ApiResponse, JobRecord, PaginatedResult } from "@/lib/types";
+import { ApiResponse, JobApplicationRecord, JobRecord, PaginatedResult, UploadedDocumentRecord } from "@/lib/types";
+import { JobApplicationDialog } from "@/components/features/jobs/job-application-dialog";
+import { JobApplicationsDialog } from "@/components/features/jobs/job-applications-dialog";
 import { JobCard } from "@/components/features/jobs/job-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAuthStore } from "@/store/auth";
 import { BriefcaseBusiness, Search } from "lucide-react";
 
 export default function JobsPage() {
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const { showToast } = useToast();
+  const editorCardRef = useRef<HTMLDivElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const handledApplicationsParamRef = useRef<string | null>(null);
   const [jobs, setJobs] = useState<JobRecord[]>([]);
   const [query, setQuery] = useState("");
   const [appliedIds, setAppliedIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+  const [jobToDelete, setJobToDelete] = useState<JobRecord | null>(null);
+  const [jobToApply, setJobToApply] = useState<JobRecord | null>(null);
+  const [jobForApplications, setJobForApplications] = useState<JobRecord | null>(null);
+  const [jobApplications, setJobApplications] = useState<JobApplicationRecord[]>([]);
+  const [loadingApplicationsJobId, setLoadingApplicationsJobId] = useState<string | null>(null);
+  const [applicationNote, setApplicationNote] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
   const [jobForm, setJobForm] = useState({
     title: "",
     company: "",
@@ -33,6 +51,7 @@ export default function JobsPage() {
   const userCanPostJobs = canPostJobs(user);
   const userCanApplyJobs = canApplyJobs(user);
   const userIsAdmin = isAdmin(user);
+  const applicationsTargetId = searchParams.get("applications");
 
   const loadJobs = async () => {
     const [{ data: jobsRes }, appsRes] = await Promise.all([
@@ -58,6 +77,74 @@ export default function JobsPage() {
     [jobs, query],
   );
 
+  const resetJobForm = () => {
+    setJobForm({
+      title: "",
+      company: "",
+      location: "",
+      type: "FULL_TIME",
+      description: "",
+      deadline: "",
+    });
+    setEditingJobId(null);
+  };
+
+  const focusJobEditor = () => {
+    editorCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.requestAnimationFrame(() => titleInputRef.current?.focus());
+  };
+
+  const resetApplicationForm = () => {
+    setJobToApply(null);
+    setApplicationNote("");
+    setResumeFile(null);
+    setIsApplying(false);
+  };
+
+  const closeApplicationsDialog = () => {
+    setJobForApplications(null);
+    setJobApplications([]);
+    setLoadingApplicationsJobId(null);
+  };
+
+  const openApplicationsForJob = async (job: JobRecord) => {
+    setJobForApplications(job);
+    setJobApplications([]);
+    setLoadingApplicationsJobId(job.id);
+
+    try {
+      const { data } = await api.get<ApiResponse<JobApplicationRecord[]>>(`/jobs/${job.id}/applications`);
+      setJobApplications(data.data);
+    } catch (error) {
+      showToast({
+        title: "Unable to load applications",
+        description: getApiErrorMessage(error, "The submitted applications could not be loaded right now."),
+        variant: "error",
+      });
+      setJobForApplications(null);
+    } finally {
+      setLoadingApplicationsJobId((current) => (current === job.id ? null : current));
+    }
+  };
+
+  useEffect(() => {
+    if (!applicationsTargetId || !userIsAdmin || !jobs.length) {
+      return;
+    }
+
+    if (handledApplicationsParamRef.current === applicationsTargetId) {
+      return;
+    }
+
+    const targetJob = jobs.find((job) => job.id === applicationsTargetId);
+    if (!targetJob) {
+      return;
+    }
+
+    handledApplicationsParamRef.current = applicationsTargetId;
+    void openApplicationsForJob(targetJob);
+  }, [applicationsTargetId, jobs, userIsAdmin]);
+
   return (
     <div className="py-8">
       <div className="mb-8">
@@ -66,11 +153,11 @@ export default function JobsPage() {
       </div>
 
       {userCanPostJobs ? (
-        <Card className="mb-8 border-border/50 bg-card/80">
+        <Card ref={editorCardRef} className="mb-8 border-border/50 bg-card/80">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <BriefcaseBusiness className="h-5 w-5 text-primary" />
-              {userIsAdmin ? "Publish Department Opportunity" : "Share an Alumni Opportunity"}
+              {editingJobId ? "Edit Opportunity" : userIsAdmin ? "Publish Department Opportunity" : "Share an Alumni Opportunity"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -80,30 +167,32 @@ export default function JobsPage() {
                 event.preventDefault();
                 setIsSubmitting(true);
                 try {
-                  await api.post("/jobs", {
+                  const payload = {
                     ...jobForm,
                     deadline: new Date(jobForm.deadline).toISOString(),
-                  });
-                  setJobForm({
-                    title: "",
-                    company: "",
-                    location: "",
-                    type: "FULL_TIME",
-                    description: "",
-                    deadline: "",
-                  });
+                  };
+
+                  if (editingJobId) {
+                    await api.patch(`/jobs/${editingJobId}`, payload);
+                  } else {
+                    await api.post("/jobs", payload);
+                  }
+
+                  resetJobForm();
                   await loadJobs();
                   showToast({
-                    title: "Opportunity posted",
-                    description: userIsAdmin
-                      ? "The department job listing is now live."
-                      : "Your job or internship opportunity is now live.",
+                    title: editingJobId ? "Opportunity updated" : "Opportunity posted",
+                    description: editingJobId
+                      ? "Your job listing changes are now live."
+                      : userIsAdmin
+                        ? "The department job listing is now live."
+                        : "Your job or internship opportunity is now live.",
                     variant: "success",
                   });
                 } catch (error) {
                   showToast({
-                    title: "Posting failed",
-                    description: getApiErrorMessage(error, "Unable to publish this opportunity."),
+                    title: editingJobId ? "Update failed" : "Posting failed",
+                    description: getApiErrorMessage(error, editingJobId ? "Unable to update this opportunity." : "Unable to publish this opportunity."),
                     variant: "error",
                   });
                 } finally {
@@ -112,6 +201,7 @@ export default function JobsPage() {
               }}
             >
               <Input
+                ref={titleInputRef}
                 value={jobForm.title}
                 onChange={(e) => setJobForm((current) => ({ ...current, title: e.target.value }))}
                 placeholder="Job title"
@@ -158,9 +248,16 @@ export default function JobsPage() {
                     ? "Admins can publish official department opportunities."
                     : "Alumni can share internships, placements, and mentorship-linked opportunities."}
                 </p>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Posting..." : "Post Opportunity"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {editingJobId ? (
+                    <Button type="button" variant="outline" onClick={resetJobForm}>
+                      Cancel
+                    </Button>
+                  ) : null}
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (editingJobId ? "Saving..." : "Posting...") : editingJobId ? "Save Changes" : "Post Opportunity"}
+                  </Button>
+                </div>
               </div>
             </form>
           </CardContent>
@@ -205,14 +302,15 @@ export default function JobsPage() {
                 ? appliedIds.includes(job.id)
                   ? "Applied Successfully"
                   : "Apply Now"
-                : "Admins Cannot Apply",
+                : undefined,
               actionDisabled: !userCanApplyJobs || appliedIds.includes(job.id),
               actionVariant: !userCanApplyJobs ? "secondary" : appliedIds.includes(job.id) ? "outline" : "default",
-              helperText: userCanApplyJobs
-                ? job.postedBy.role === "ALUMNI"
+              helperText:
+                job.postedBy.role === "ALUMNI"
                   ? `Posted by alumni member ${job.postedBy.name}.`
-                  : `Posted by ${job.postedBy.name}.`
-                : "Admins can publish opportunities and oversee hiring activity, but they do not apply to roles.",
+                  : `Posted by ${job.postedBy.name}.`,
+              canManage: Boolean(user && (user.role === "ADMIN" || job.postedBy.id === user.id)),
+              canViewApplications: userIsAdmin,
             }}
             onApply={async () => {
               if (!userCanApplyJobs) {
@@ -223,21 +321,140 @@ export default function JobsPage() {
                 showToast({ title: "Already applied", description: "You have already applied to this job.", variant: "info" });
                 return;
               }
-
-              try {
-                await api.post(`/jobs/${job.id}/apply`, {
-                  resumeUrl: "",
-                  coverLetter: "Submitted through the DECP web portal.",
-                });
-                setAppliedIds((prev) => [...prev, job.id]);
-                showToast({ title: "Application submitted", description: "Your job application was sent successfully.", variant: "success" });
-              } catch (error) {
-                showToast({ title: "Application failed", description: getApiErrorMessage(error, "Unable to apply for this job."), variant: "error" });
-              }
+              setJobToApply(job);
+              setApplicationNote("");
+              setResumeFile(null);
             }}
+            onViewApplications={async () => {
+              if (!userIsAdmin) {
+                return;
+              }
+              await openApplicationsForJob(job);
+            }}
+            onEdit={() => {
+              setEditingJobId(job.id);
+              setJobForm({
+                title: job.title,
+                company: job.company,
+                location: job.location,
+                type: job.type,
+                description: job.description,
+                deadline: format(new Date(job.deadline), "yyyy-MM-dd'T'HH:mm"),
+              });
+              focusJobEditor();
+            }}
+            onDelete={() => setJobToDelete(job)}
+            isDeleting={deletingJobId === job.id}
+            isViewingApplications={loadingApplicationsJobId === job.id}
           />
         ))}
       </div>
+      <ConfirmDialog
+        open={Boolean(jobToDelete)}
+        title="Delete job posting?"
+        description={
+          jobToDelete
+            ? `This will permanently remove "${jobToDelete.title}" from the platform. This action cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete Job"
+        isConfirming={Boolean(jobToDelete && deletingJobId === jobToDelete.id)}
+        onCancel={() => setJobToDelete(null)}
+        onConfirm={async () => {
+          if (!jobToDelete) {
+            return;
+          }
+
+          setDeletingJobId(jobToDelete.id);
+          try {
+            await api.delete(`/jobs/${jobToDelete.id}`);
+            if (editingJobId === jobToDelete.id) {
+              resetJobForm();
+            }
+            await loadJobs();
+            showToast({ title: "Opportunity deleted", description: "The job listing has been removed.", variant: "success" });
+            setJobToDelete(null);
+          } catch (error) {
+            showToast({ title: "Delete failed", description: getApiErrorMessage(error, "Unable to delete this opportunity."), variant: "error" });
+          } finally {
+            setDeletingJobId((current) => (current === jobToDelete.id ? null : current));
+          }
+        }}
+      />
+      <JobApplicationDialog
+        open={Boolean(jobToApply)}
+        jobTitle={jobToApply?.title ?? "this opportunity"}
+        description={applicationNote}
+        selectedFileName={resumeFile?.name}
+        isSubmitting={isApplying}
+        onDescriptionChange={setApplicationNote}
+        onFileChange={setResumeFile}
+        onClose={() => {
+          if (!isApplying) {
+            resetApplicationForm();
+          }
+        }}
+        onSubmit={async (event) => {
+          event.preventDefault();
+
+          if (!jobToApply) {
+            return;
+          }
+
+          if (!resumeFile) {
+            showToast({ title: "CV required", description: "Please upload your CV before applying.", variant: "error" });
+            return;
+          }
+
+          if (!applicationNote.trim()) {
+            showToast({
+              title: "Description required",
+              description: "Please add a short description about your application.",
+              variant: "error",
+            });
+            return;
+          }
+
+          setIsApplying(true);
+          try {
+            const formData = new FormData();
+            formData.append("file", resumeFile);
+
+            const { data: uploadRes } = await api.post<ApiResponse<UploadedDocumentRecord>>("/uploads/documents", formData, {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            });
+
+            await api.post(`/jobs/${jobToApply.id}/apply`, {
+              resumeUrl: uploadRes.data.documentUrl,
+              coverLetter: applicationNote.trim(),
+            });
+
+            setAppliedIds((prev) => (prev.includes(jobToApply.id) ? prev : [...prev, jobToApply.id]));
+            showToast({
+              title: "Application submitted",
+              description: "Your CV and short description were submitted successfully.",
+              variant: "success",
+            });
+            resetApplicationForm();
+          } catch (error) {
+            showToast({
+              title: "Application failed",
+              description: getApiErrorMessage(error, "Unable to submit your application right now."),
+              variant: "error",
+            });
+            setIsApplying(false);
+          }
+        }}
+      />
+      <JobApplicationsDialog
+        open={Boolean(jobForApplications)}
+        jobTitle={jobForApplications?.title ?? "this opportunity"}
+        applications={jobApplications}
+        isLoading={Boolean(jobForApplications && loadingApplicationsJobId === jobForApplications.id)}
+        onClose={closeApplicationsDialog}
+      />
     </div>
   );
 }

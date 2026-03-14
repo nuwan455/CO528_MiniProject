@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Alert, Share } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -50,6 +50,26 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({ navigation }) => {
     onError: (_error, _variables, context) => {
       queryClient.setQueryData(['posts'], context?.previousPosts);
     },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['post'] });
+    },
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: async (post: Post) => {
+      await api.sharePost(post.id);
+      await Share.share({
+        message: post.content?.trim() || 'Check out this post from the department feed.',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['post'] });
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to share post');
+    },
   });
 
   const renderPost = ({ item }: { item: Post }) => (
@@ -58,7 +78,7 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({ navigation }) => {
       onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
       onLike={() => likeMutation.mutate({ postId: item.id, isLiked: item.isLiked })}
       onComment={() => navigation.navigate('PostDetail', { postId: item.id })}
-      onShare={() => {}}
+      onShare={() => shareMutation.mutate(item)}
     />
   );
 

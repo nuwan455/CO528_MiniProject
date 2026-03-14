@@ -21,6 +21,20 @@ interface LoginResponse {
   };
 }
 
+function extractLoginPayload(apiData: ApiResponse<LoginResponse>['data']) {
+  const topLevel = apiData as Partial<LoginResponse>;
+  if (topLevel?.user && topLevel?.tokens) {
+    return topLevel as LoginResponse;
+  }
+
+  const nested = (apiData as { data?: Partial<LoginResponse> })?.data;
+  if (nested?.user && nested?.tokens) {
+    return nested as LoginResponse;
+  }
+
+  throw new Error('Unexpected login response format');
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
@@ -54,7 +68,7 @@ export default function LoginPage() {
         email: normalizedEmail,
         password: normalizedPassword,
       });
-      const { user, tokens } = data.data;
+      const { user, tokens } = extractLoginPayload(data.data);
       localStorage.setItem("token", tokens.accessToken);
       localStorage.setItem("refreshToken", tokens.refreshToken);
       login(user, tokens.accessToken, tokens.refreshToken);

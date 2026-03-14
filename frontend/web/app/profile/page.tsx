@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import api from "@/lib/api";
-import { ApiResponse, PaginatedResult, PostRecord, WebUser } from "@/lib/types";
+import { ApiResponse, normalizePostRecord, PaginatedResult, PostRecord, WebUser } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +22,7 @@ export default function ProfilePage() {
     ])
       .then(([userRes, postsRes]) => {
         const currentUser = userRes.data.data;
-        const items = postsRes.data.data.items;
+        const items = postsRes.data.data.items.map((post) => normalizePostRecord(post));
         updateUser(currentUser);
         setPosts(items.filter((post) => post.author.id === currentUser.id));
       })
@@ -108,12 +108,21 @@ export default function ProfilePage() {
                 key={post.id}
                 post={{
                   id: post.id,
-                  author: { name: post.author.name, role: post.author.role },
+                  author: {
+                    name: post.author.name,
+                    role: post.author.role,
+                    headline: post.author.headline,
+                    profileImageUrl: post.author.profileImageUrl,
+                  },
                   content: post.content,
                   timestamp: formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }),
+                  mediaUrl: post.mediaUrl,
+                  mediaType: post.mediaType,
                   likes: post._count.likes,
                   comments: post._count.comments,
                   shares: post._count.shares,
+                  isLiked: post.interactions.isLiked,
+                  isShared: post.interactions.isShared,
                 }}
               />
             ))}

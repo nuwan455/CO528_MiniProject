@@ -21,6 +21,18 @@ const resolveApiBaseUrl = () => {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+export const resolveAssetUrl = (assetUrl?: string | null) => {
+  if (!assetUrl) {
+    return undefined;
+  }
+
+  if (/^(https?:\/\/|blob:|data:)/i.test(assetUrl)) {
+    return assetUrl;
+  }
+
+  return new URL(assetUrl, API_BASE_URL).toString();
+};
+
 const splitName = (name: string) => {
   const parts = name.trim().split(/\s+/);
   return {
@@ -40,7 +52,7 @@ const normalizeUser = (user: any): User => {
     lastName,
     role: user.role,
     bio: user.bio,
-    avatar: user.profileImageUrl,
+    avatar: resolveAssetUrl(user.profileImageUrl),
     department: user.department,
     graduationYear: user.batchYear,
     skills: user.skills || [],
@@ -53,11 +65,14 @@ const normalizePost = (post: any): Post => ({
   id: post.id,
   content: post.content,
   author: normalizeUser(post.author),
-  images: post.mediaUrl ? [post.mediaUrl] : [],
+  mediaUrl: resolveAssetUrl(post.mediaUrl),
+  mediaType: post.mediaType,
+  images: post.mediaUrl ? [resolveAssetUrl(post.mediaUrl) as string] : [],
   likesCount: post._count?.likes ?? 0,
   commentsCount: post._count?.comments ?? 0,
   sharesCount: post._count?.shares ?? 0,
-  isLiked: false,
+  isLiked: post.interactions?.isLiked ?? false,
+  isShared: post.interactions?.isShared ?? false,
   createdAt: post.createdAt,
   updatedAt: post.updatedAt,
 });
@@ -87,6 +102,22 @@ const normalizeEvent = (event: any): Event => ({
   isRsvped: false,
   imageUrl: event.bannerUrl,
   createdAt: event.createdAt,
+});
+
+const normalizeResearchProject = (project: any): ResearchProject => ({
+  id: project.id,
+  title: project.title,
+  description: project.description,
+  tags: project.tags || [],
+  documentUrl: resolveAssetUrl(project.documentUrl),
+  lead: normalizeUser(project.owner),
+  collaborators:
+    project.collaborators?.map((item: any) => ({
+      id: item.id,
+      roleInProject: item.roleInProject,
+      user: normalizeUser(item.user),
+    })) ?? [],
+  createdAt: project.createdAt,
 });
 
 const normalizeMessage = (message: any): Message => ({
@@ -272,6 +303,40 @@ export class ApiService {
     };
   }
 
+  async uploadMedia(file: { uri: string; name: string; type: string }) {
+    const formData = new FormData();
+    formData.append('file', file as any);
+
+    const response = await this.client.post<ApiResponse<{ mediaUrl: string; mediaType: 'IMAGE' | 'VIDEO' }>>(
+      '/uploads/media',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+
+    return response.data;
+  }
+
+  async uploadDocument(file: { uri: string; name: string; type: string }) {
+    const formData = new FormData();
+    formData.append('file', file as any);
+
+    const response = await this.client.post<ApiResponse<{ documentUrl: string; fileName: string }>>(
+      '/uploads/documents',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      },
+    );
+
+    return response.data;
+  }
+
   async likePost(postId: string) {
     const response = await this.client.post<ApiResponse>(`/posts/${postId}/like`);
     return response.data;
@@ -323,6 +388,21 @@ export class ApiService {
     };
   }
 
+  async createJob(data: {
+    title: string;
+    company: string;
+    location: string;
+    type: 'FULL_TIME' | 'PART_TIME' | 'INTERNSHIP' | 'CONTRACT';
+    description: string;
+    deadline: string;
+  }) {
+    const response = await this.client.post<ApiResponse<any>>('/jobs', data);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeJob(response.data.data) : undefined,
+    };
+  }
+
   async applyToJob(jobId: string, data: any) {
     const response = await this.client.post<ApiResponse>(`/jobs/${jobId}/apply`, data);
     return response.data;
@@ -360,6 +440,21 @@ export class ApiService {
     };
   }
 
+  async createEvent(data: {
+    title: string;
+    description: string;
+    location: string;
+    startTime: string;
+    endTime: string;
+    bannerUrl?: string;
+  }) {
+    const response = await this.client.post<ApiResponse<any>>('/events', data);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeEvent(response.data.data) : undefined,
+    };
+  }
+
   async rsvpEvent(eventId: string, status = 'GOING') {
     const response = await this.client.post<ApiResponse>(`/events/${eventId}/rsvp`, { status });
     return response.data;
@@ -369,18 +464,29 @@ export class ApiService {
     const response = await this.client.get<ApiResponse<any>>('/research/projects');
     return {
       ...response.data,
-      data:
-        response.data.data?.items?.map(
-          (project: any): ResearchProject => ({
-            id: project.id,
-            title: project.title,
-            description: project.description,
-            lead: normalizeUser(project.owner),
-            collaborators: project.collaborators?.map((item: any) => normalizeUser(item.user)) ?? [],
-            createdAt: project.createdAt,
-          }),
-        ) ?? [],
+      data: response.data.data?.items?.map(normalizeResearchProject) ?? [],
     };
+  }
+
+  async getResearchProject(projectId: string) {
+    const response = await this.client.get<ApiResponse<any>>(`/research/projects/${projectId}`);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeResearchProject(response.data.data) : undefined,
+    };
+  }
+
+  async createResearchProject(data: any) {
+    const response = await this.client.post<ApiResponse<any>>('/research/projects', data);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeResearchProject(response.data.data) : undefined,
+    };
+  }
+
+  async addResearchCollaborator(projectId: string, data: { userId: string; roleInProject: string }) {
+    const response = await this.client.post<ApiResponse<any>>(`/research/projects/${projectId}/collaborators`, data);
+    return response.data;
   }
 
   async getConversations() {

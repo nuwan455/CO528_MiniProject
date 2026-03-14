@@ -4,9 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../services/api';
 import { Notification } from '../types';
-import { Avatar } from '../components/Avatar';
+import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
-import { colors, spacing, radius, typography } from '../theme/tokens';
+import { colors, spacing, typography } from '../theme/tokens';
 import { formatDistanceToNow } from '../utils/date';
 
 export const NotificationsScreen: React.FC = () => {
@@ -29,18 +29,23 @@ export const NotificationsScreen: React.FC = () => {
     },
   });
 
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      return api.markAllNotificationsRead();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
   const renderNotification = ({ item }: { item: Notification }) => (
     <TouchableOpacity
       style={[styles.notification, !item.isRead && styles.unread]}
       onPress={() => !item.isRead && markReadMutation.mutate(item.id)}
     >
-      {item.relatedUser && (
-        <Avatar
-          uri={item.relatedUser.avatar}
-          name={`${item.relatedUser.firstName} ${item.relatedUser.lastName}`}
-          size={40}
-        />
-      )}
+      <View style={styles.iconWrap}>
+        <Ionicons name="notifications" size={18} color={colors.accent} />
+      </View>
       <View style={styles.content}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.message}>{item.message}</Text>
@@ -56,6 +61,16 @@ export const NotificationsScreen: React.FC = () => {
         data={notifications || []}
         renderItem={renderNotification}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Button
+              title="Mark all as read"
+              onPress={() => markAllReadMutation.mutate()}
+              loading={markAllReadMutation.isPending}
+              variant="secondary"
+            />
+          </View>
+        }
         ListEmptyComponent={
           <EmptyState
             icon="notifications-outline"
@@ -73,6 +88,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  header: {
+    padding: spacing.base,
+    paddingBottom: 0,
+  },
   notification: {
     flexDirection: 'row',
     padding: spacing.base,
@@ -83,6 +102,14 @@ const styles = StyleSheet.create({
   },
   unread: {
     backgroundColor: colors.surfaceElevated,
+  },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accentMuted,
   },
   content: {
     flex: 1,

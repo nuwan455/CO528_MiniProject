@@ -71,6 +71,10 @@ export class JobsService {
   }
 
   async apply(id: string, user: AuthUser, dto: ApplyJobDto) {
+    if (user.role === Role.ADMIN) {
+      throw new ForbiddenException('Admins cannot apply for jobs');
+    }
+
     const application = await this.prisma.jobApplication.upsert({
       where: { jobId_applicantId: { jobId: id, applicantId: user.sub } },
       update: { resumeUrl: dto.resumeUrl, coverLetter: dto.coverLetter, status: ApplicationStatus.APPLIED },

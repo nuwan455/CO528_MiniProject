@@ -4,23 +4,42 @@ import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/form-validation";
+import { canCreateDepartmentEvents, isAdmin } from "@/lib/roles";
 import { ApiResponse, EventRecord, PaginatedResult } from "@/lib/types";
 import { EventCard } from "@/components/features/events/event-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast-provider";
-import { Search } from "lucide-react";
+import { useAuthStore } from "@/store/auth";
+import { CalendarPlus, Search } from "lucide-react";
 
 export default function EventsPage() {
+  const { user } = useAuthStore();
   const { showToast } = useToast();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [query, setQuery] = useState("");
   const [rsvpedIds, setRsvpedIds] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [eventForm, setEventForm] = useState({
+    title: "",
+    description: "",
+    location: "",
+    startTime: "",
+    endTime: "",
+    bannerUrl: "",
+  });
+
+  const userCanCreateEvents = canCreateDepartmentEvents(user);
+  const userIsAdmin = isAdmin(user);
+
+  const loadEvents = async () => {
+    const { data } = await api.get<ApiResponse<PaginatedResult<EventRecord>>>("/events?upcoming=true");
+    setEvents(data.data.items);
+  };
 
   useEffect(() => {
-    api
-      .get<ApiResponse<PaginatedResult<EventRecord>>>("/events?upcoming=true")
-      .then(({ data }) => setEvents(data.data.items))
-      .catch(() => undefined);
+    loadEvents().catch(() => undefined);
   }, []);
 
   const filteredEvents = useMemo(
@@ -37,6 +56,102 @@ export default function EventsPage() {
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Department Events</h1>
         <p className="mt-2 text-muted-foreground">Discover and RSVP to upcoming activities.</p>
       </div>
+
+      {userCanCreateEvents ? (
+        <Card className="mb-8 border-border/50 bg-card/80">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <CalendarPlus className="h-5 w-5 text-primary" />
+              Create Department Event
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="grid gap-4 md:grid-cols-2"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setIsSubmitting(true);
+                try {
+                  await api.post("/events", {
+                    ...eventForm,
+                    bannerUrl: eventForm.bannerUrl || undefined,
+                    startTime: new Date(eventForm.startTime).toISOString(),
+                    endTime: new Date(eventForm.endTime).toISOString(),
+                  });
+                  setEventForm({
+                    title: "",
+                    description: "",
+                    location: "",
+                    startTime: "",
+                    endTime: "",
+                    bannerUrl: "",
+                  });
+                  await loadEvents();
+                  showToast({
+                    title: "Event published",
+                    description: "The official department event is now visible to all users.",
+                    variant: "success",
+                  });
+                } catch (error) {
+                  showToast({
+                    title: "Event creation failed",
+                    description: getApiErrorMessage(error, "Unable to create this event."),
+                    variant: "error",
+                  });
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+            >
+              <Input
+                value={eventForm.title}
+                onChange={(e) => setEventForm((current) => ({ ...current, title: e.target.value }))}
+                placeholder="Event title"
+                required
+              />
+              <Input
+                value={eventForm.location}
+                onChange={(e) => setEventForm((current) => ({ ...current, location: e.target.value }))}
+                placeholder="Location"
+                required
+              />
+              <Input
+                type="datetime-local"
+                value={eventForm.startTime}
+                onChange={(e) => setEventForm((current) => ({ ...current, startTime: e.target.value }))}
+                required
+              />
+              <Input
+                type="datetime-local"
+                value={eventForm.endTime}
+                onChange={(e) => setEventForm((current) => ({ ...current, endTime: e.target.value }))}
+                required
+              />
+              <Input
+                className="md:col-span-2"
+                value={eventForm.bannerUrl}
+                onChange={(e) => setEventForm((current) => ({ ...current, bannerUrl: e.target.value }))}
+                placeholder="Banner image URL (optional)"
+              />
+              <textarea
+                className="min-h-32 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground md:col-span-2"
+                value={eventForm.description}
+                onChange={(e) => setEventForm((current) => ({ ...current, description: e.target.value }))}
+                placeholder="Share agenda, audience, and what attendees should expect."
+                required
+              />
+              <div className="md:col-span-2 flex items-center justify-between gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Admins publish official announcements and department events for students and alumni.
+                </p>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Publishing..." : "Publish Event"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="relative mb-8 max-w-2xl">
         <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
@@ -63,6 +178,14 @@ export default function EventsPage() {
               image: event.bannerUrl,
               isRSVP: rsvpedIds.includes(event.id),
               host: event.createdBy.name,
+              actionLabel: userIsAdmin
+                ? "Admin RSVP Optional"
+                : rsvpedIds.includes(event.id)
+                  ? "Update RSVP"
+                  : "RSVP Now",
+              helperText: userIsAdmin
+                ? "Admins publish and oversee official events. RSVP is optional for administrative accounts."
+                : "Students and alumni can RSVP to participate in department activities.",
             }}
             onRsvp={async () => {
               try {

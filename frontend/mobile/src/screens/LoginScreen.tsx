@@ -23,9 +23,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       return;
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     setLoading(true);
     try {
-      await login(email, password);
+      await login(normalizedEmail, password);
     } catch (error: any) {
       Alert.alert('Login Failed', error.response?.data?.message || 'Invalid credentials');
     } finally {

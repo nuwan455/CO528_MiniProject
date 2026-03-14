@@ -25,8 +25,8 @@ export class PostsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.postsService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.postsService.findOne(id, user);
   }
 
   @Patch(':id')
@@ -59,8 +59,8 @@ export class PostsController {
   }
 
   @Get(':id/comments')
-  listComments(@Param('id') id: string) {
-    return this.postsService.listComments(id);
+  listComments(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.postsService.listComments(id, user);
   }
 
   @Post(':id/share')

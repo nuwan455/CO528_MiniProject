@@ -17,7 +17,7 @@ interface ChatWindowProps {
   conversation: {
     id: string;
     name: string;
-    avatar?: string;
+    avatar?: string | null;
     status: string;
   } | null;
   messages: ChatMessage[];
@@ -42,7 +42,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, isSending = 
       <div className="z-10 flex h-16 items-center justify-between border-b border-border/50 bg-card/50 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border border-primary/20">
-            <AvatarImage src={conversation.avatar} alt={conversation.name} />
+            <AvatarImage src={conversation.avatar ?? undefined} alt={conversation.name} />
             <AvatarFallback className="bg-primary/10 font-medium text-primary">
               {conversation.name.charAt(0)}
             </AvatarFallback>
@@ -73,7 +73,7 @@ export function ChatWindow({ conversation, messages, onSendMessage, isSending = 
               <div className={`flex max-w-[70%] gap-3 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
                 {!isMe ? (
                   <Avatar className="mt-auto h-8 w-8 shrink-0 border border-primary/20">
-                    <AvatarImage src={conversation.avatar} alt={conversation.name} />
+                    <AvatarImage src={conversation.avatar ?? undefined} alt={conversation.name} />
                     <AvatarFallback className="bg-primary/10 text-xs text-primary">
                       {conversation.name.charAt(0)}
                     </AvatarFallback>

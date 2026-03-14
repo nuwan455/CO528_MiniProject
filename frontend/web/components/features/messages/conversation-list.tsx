@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 interface Conversation {
   id: string;
   name: string;
-  avatar?: string;
+  avatar?: string | null;
   lastMessage: string;
   timestamp: string;
   unread: number;
@@ -58,7 +58,7 @@ export function ConversationList({ conversations, activeId, onSelect }: Conversa
             )}
           >
             <Avatar className="h-10 w-10 shrink-0 border border-primary/20">
-              <AvatarImage src={conv.avatar} alt={conv.name} />
+              <AvatarImage src={conv.avatar ?? undefined} alt={conv.name} />
               <AvatarFallback className="bg-primary/10 font-medium text-primary">
                 {conv.name.charAt(0)}
               </AvatarFallback>

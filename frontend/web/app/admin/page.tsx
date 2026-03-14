@@ -1,14 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import api from "@/lib/api";
+import { AdminReportRecord, AdminUserRecord, ApiResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/components/ui/toast-provider";
+import { useAuthStore } from "@/store/auth";
+import { canManageUsers } from "@/lib/roles";
 import { Search, ShieldAlert, UserX, Trash2, CheckCircle } from "lucide-react";
 
 export default function AdminPage() {
+  const { user } = useAuthStore();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState("users");
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<AdminUserRecord[]>([]);
+  const [reports, setReports] = useState<AdminReportRecord | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const userCanManage = canManageUsers(user);
+
+  useEffect(() => {
+    if (!userCanManage) {
+      return;
+    }
+
+    Promise.all([
+      api.get<ApiResponse<AdminUserRecord[]>>("/admin/users"),
+      api.get<ApiResponse<AdminReportRecord>>("/admin/reports"),
+    ])
+      .then(([usersRes, reportsRes]) => {
+        setUsers(usersRes.data.data);
+        setReports(reportsRes.data.data);
+      })
+      .catch(() => undefined);
+  }, [userCanManage]);
+
+  if (!userCanManage) {
+    return (
+      <div className="py-8">
+        <Card className="border-border/50 bg-card/80">
+          <CardContent className="pt-6">
+            <h1 className="text-2xl font-bold text-foreground">Admin Access Required</h1>
+            <p className="mt-2 text-muted-foreground">
+              User account management, moderation, and department-wide oversight are available only to admin accounts.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const filteredUsers = users.filter((adminUser) =>
+    [adminUser.name, adminUser.email, adminUser.role, adminUser.department ?? ""]
+      .join(" ")
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
 
   return (
     <div className="py-8">
@@ -33,6 +83,8 @@ export default function AdminPage() {
             <Input
               type="search"
               placeholder={`Search ${activeTab}...`}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               className="w-full pl-9 bg-card/50 border-border/50"
             />
           </div>
@@ -57,26 +109,53 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
-                    {[
-                      { name: "John Doe", email: "john@edu.com", role: "Student", status: "Active" },
-                      { name: "Jane Smith", email: "jane@edu.com", role: "Alumni", status: "Active" },
-                      { name: "Dr. Who", email: "who@edu.com", role: "Faculty", status: "Suspended" },
-                    ].map((user, i) => (
-                      <tr key={i} className="hover:bg-accent/30 transition-colors">
-                        <td className="px-4 py-3 font-medium text-foreground">{user.name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
+                    {filteredUsers.map((adminUser) => (
+                      <tr key={adminUser.id} className="hover:bg-accent/30 transition-colors">
+                        <td className="px-4 py-3 font-medium text-foreground">{adminUser.name}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{adminUser.email}</td>
                         <td className="px-4 py-3">
-                          <span className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                            {user.role}
-                          </span>
+                          <select
+                            className="rounded-full border border-border/50 bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                            value={adminUser.role}
+                            disabled={updatingUserId === adminUser.id}
+                            onChange={async (e) => {
+                              const nextRole = e.target.value as AdminUserRecord["role"];
+                              setUpdatingUserId(adminUser.id);
+                              try {
+                                await api.patch(`/users/${adminUser.id}/role`, { role: nextRole });
+                                setUsers((current) =>
+                                  current.map((item) =>
+                                    item.id === adminUser.id ? { ...item, role: nextRole } : item,
+                                  ),
+                                );
+                                showToast({
+                                  title: "Role updated",
+                                  description: `${adminUser.name} is now assigned as ${nextRole.toLowerCase()}.`,
+                                  variant: "success",
+                                });
+                              } catch {
+                                showToast({
+                                  title: "Role update failed",
+                                  description: "Unable to change this user role right now.",
+                                  variant: "error",
+                                });
+                              } finally {
+                                setUpdatingUserId(null);
+                              }
+                            }}
+                          >
+                            <option value="STUDENT">Student</option>
+                            <option value="ALUMNI">Alumni</option>
+                            <option value="ADMIN">Admin</option>
+                          </select>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.status === 'Active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-destructive/10 text-destructive'}`}>
-                            {user.status}
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-500">
+                            Active
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
+                          <Button variant="ghost" size="sm" className="text-muted-foreground" disabled>
                             <UserX className="h-4 w-4" />
                           </Button>
                         </td>
@@ -92,39 +171,58 @@ export default function AdminPage() {
         <TabsContent value="reports" className="mt-6">
           <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Reported Content</CardTitle>
+              <CardTitle className="text-lg">Platform Reports</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[1, 2].map((i) => (
-                  <div key={i} className="flex items-start justify-between p-4 rounded-lg border border-border/50 bg-background/50">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold uppercase text-destructive tracking-wider">Spam</span>
-                        <span className="text-xs text-muted-foreground">Reported 2 hours ago</span>
-                      </div>
-                      <p className="text-sm font-medium text-foreground">Post by User123</p>
-                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">"Click here to win a free iPhone..."</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 border-border/50">
-                        <CheckCircle className="h-4 w-4 mr-1" /> Ignore
-                      </Button>
-                      <Button variant="destructive" size="sm">
-                        <Trash2 className="h-4 w-4 mr-1" /> Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Users</p>
+                  <p className="mt-2 text-3xl font-bold text-foreground">{reports?.users ?? "-"}</p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Role Split</p>
+                  <p className="mt-2 text-sm text-foreground">
+                    {reports
+                      ? `${reports.roleBreakdown.students} students, ${reports.roleBreakdown.alumni} alumni, ${reports.roleBreakdown.admins} admins`
+                      : "-"}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Platform Content</p>
+                  <p className="mt-2 text-sm text-foreground">
+                    {reports ? `${reports.posts} posts, ${reports.jobs} jobs, ${reports.events} events` : "-"}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Flagged Items</p>
+                  <p className="mt-2 text-3xl font-bold text-foreground">{reports?.flaggedCount ?? 0}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="content" className="mt-6">
-          <div className="text-center py-12 text-muted-foreground border border-dashed border-border/50 rounded-xl bg-card/30">
-            Content moderation settings and bulk actions will appear here.
-          </div>
+          <Card className="border-border/50 bg-card/80">
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-border/50 bg-background/50 p-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Moderation Scope</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Admins manage roles here, while job publishing and event publishing are role-gated inside their own modules.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled>
+                    <CheckCircle className="h-4 w-4 mr-1" /> Review Queue
+                  </Button>
+                  <Button variant="destructive" size="sm" disabled>
+                    <Trash2 className="h-4 w-4 mr-1" /> Bulk Remove
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

@@ -16,6 +16,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
+import { canAccessAnalytics } from '@/lib/roles';
 
 const navItems = [
   { name: 'Feed', href: '/feed', icon: Home },
@@ -24,13 +25,15 @@ const navItems = [
   { name: 'Research', href: '/research', icon: Microscope },
   { name: 'Messages', href: '/messages', icon: MessageSquare },
   { name: 'Notifications', href: '/notifications', icon: Bell },
-  { name: 'Analytics', href: '/analytics', icon: BarChart2 },
 ];
 
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const visibleNavItems = canAccessAnalytics(user)
+    ? [...navItems, { name: 'Analytics', href: '/analytics', icon: BarChart2 }]
+    : navItems;
 
   const handleSignOut = () => {
     logout();
@@ -45,7 +48,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
             <Link

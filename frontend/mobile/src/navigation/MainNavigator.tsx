@@ -4,9 +4,13 @@ import { MainStackParamList } from './types';
 import { TabNavigator } from './TabNavigator';
 import { PostDetailScreen } from '../screens/PostDetailScreen';
 import { JobDetailScreen } from '../screens/JobDetailScreen';
+import { CreateJobScreen } from '../screens/CreateJobScreen';
+import { CreateEventScreen } from '../screens/CreateEventScreen';
 import { CreatePostScreen } from '../screens/CreatePostScreen';
 import { ConversationScreen } from '../screens/ConversationScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ResearchListScreen } from '../screens/ResearchListScreen';
+import { ResearchDetailScreen } from '../screens/ResearchDetailScreen';
 import { colors, typography } from '../theme/tokens';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -33,9 +37,13 @@ export const MainNavigator = () => {
       <Stack.Screen name="MainTabs" component={TabNavigator} options={{ headerShown: false }} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: 'Post' }} />
       <Stack.Screen name="JobDetail" component={JobDetailScreen} options={{ title: 'Job Details' }} />
+      <Stack.Screen name="CreateJob" component={CreateJobScreen} options={{ title: 'Create Job' }} />
+      <Stack.Screen name="CreateEvent" component={CreateEventScreen} options={{ title: 'Create Event' }} />
       <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: 'Create Post' }} />
       <Stack.Screen name="Conversation" component={ConversationScreen} options={{ title: 'Chat' }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
+      <Stack.Screen name="ResearchList" component={ResearchListScreen} options={{ title: 'Research Projects' }} />
+      <Stack.Screen name="ResearchDetail" component={ResearchDetailScreen} options={{ title: 'Project Details' }} />
     </Stack.Navigator>
   );
 };

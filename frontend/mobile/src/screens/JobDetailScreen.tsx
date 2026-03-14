@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { MainStackParamList } from '../navigation/types';
+import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import { Job } from '../types';
 import { Button } from '../components/Button';
@@ -19,6 +20,8 @@ type JobDetailScreenProps = {
 export const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ route }) => {
   const { jobId } = route.params;
   const [applied, setApplied] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const canApply = user?.role !== 'ADMIN';
 
   const { data: job } = useQuery({
     queryKey: ['job', jobId],
@@ -94,12 +97,23 @@ export const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ route }) => {
       </View>
 
       <View style={styles.actions}>
+        {!canApply ? (
+          <Text style={styles.adminHint}>
+            Admins can publish and manage opportunities, but they cannot apply to internship or job posts.
+          </Text>
+        ) : null}
         <Button
-          title={applied ? 'Applied' : 'Apply Now'}
-          onPress={() => applyMutation.mutate()}
+          title={!canApply ? 'Admins Cannot Apply' : applied ? 'Applied' : 'Apply Now'}
+          onPress={() => {
+            if (!canApply) {
+              return;
+            }
+            applyMutation.mutate();
+          }}
           loading={applyMutation.isPending}
-          disabled={applied}
+          disabled={!canApply || applied}
           size="lg"
+          variant={!canApply ? 'secondary' : 'primary'}
         />
       </View>
     </ScrollView>
@@ -187,5 +201,11 @@ const styles = StyleSheet.create({
   },
   actions: {
     paddingHorizontal: spacing.xl,
+  },
+  adminHint: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
+    marginBottom: spacing.sm,
   },
 });

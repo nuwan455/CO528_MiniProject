@@ -15,6 +15,10 @@ interface JobCardProps {
     description: string;
     applications: number;
     isApplied?: boolean;
+    actionLabel?: string;
+    actionDisabled?: boolean;
+    actionVariant?: "default" | "outline" | "secondary";
+    helperText?: string;
   };
   onApply?: () => void;
 }
@@ -59,9 +63,17 @@ export function JobCard({ job, onApply }: JobCardProps) {
         </p>
       </CardContent>
       <CardFooter className="pt-0">
-        <Button className="w-full font-medium tracking-wide" variant={job.isApplied ? "outline" : "default"} onClick={onApply}>
-          {job.isApplied ? "Applied Successfully" : "Apply Now"}
-        </Button>
+        <div className="w-full space-y-2">
+          <Button
+            className="w-full font-medium tracking-wide"
+            variant={job.actionVariant ?? (job.isApplied ? "outline" : "default")}
+            onClick={onApply}
+            disabled={job.actionDisabled}
+          >
+            {job.actionLabel ?? (job.isApplied ? "Applied Successfully" : "Apply Now")}
+          </Button>
+          {job.helperText ? <p className="text-xs text-muted-foreground">{job.helperText}</p> : null}
+        </div>
       </CardFooter>
     </Card>
   );

@@ -157,7 +157,7 @@ export default function JobsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
               <BriefcaseBusiness className="h-5 w-5 text-primary" />
-              {editingJobId ? "Edit Opportunity" : userIsAdmin ? "Publish Department Opportunity" : "Share an Alumni Opportunity"}
+              {editingJobId ? "Edit Opportunity" : "Publish Department Opportunity"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -244,9 +244,7 @@ export default function JobsPage() {
               />
               <div className="md:col-span-2 flex items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground">
-                  {userIsAdmin
-                    ? "Admins can publish official department opportunities."
-                    : "Alumni can share internships, placements, and mentorship-linked opportunities."}
+                  Admins can publish official department opportunities.
                 </p>
                 <div className="flex items-center gap-2">
                   {editingJobId ? (
@@ -266,7 +264,7 @@ export default function JobsPage() {
         <Card className="mb-8 border-border/50 bg-card/50">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">
-              Students can browse and apply for opportunities here. Job and internship posting is reserved for alumni and admins.
+              Students and alumni can browse and apply for opportunities here. Job and internship posting is reserved for admins.
             </p>
           </CardContent>
         </Card>
@@ -309,7 +307,7 @@ export default function JobsPage() {
                 job.postedBy.role === "ALUMNI"
                   ? `Posted by alumni member ${job.postedBy.name}.`
                   : `Posted by ${job.postedBy.name}.`,
-              canManage: Boolean(user && (user.role === "ADMIN" || job.postedBy.id === user.id)),
+              canManage: Boolean(user && user.role === "ADMIN"),
               canViewApplications: userIsAdmin,
             }}
             onApply={async () => {

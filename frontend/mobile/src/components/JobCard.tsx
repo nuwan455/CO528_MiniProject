@@ -43,6 +43,12 @@ export const JobCard: React.FC<JobCardProps> = ({ job, onPress }) => {
           <Ionicons name="location-outline" size={14} color={colors.textTertiary} />
           <Text style={styles.metaText}>{job.location}</Text>
         </View>
+        {typeof job.applicationsCount === 'number' ? (
+          <View style={styles.metaItem}>
+            <Ionicons name="people-outline" size={14} color={colors.textTertiary} />
+            <Text style={styles.metaText}>{job.applicationsCount} applications</Text>
+          </View>
+        ) : null}
         {job.salary && (
           <View style={styles.metaItem}>
             <Ionicons name="cash-outline" size={14} color={colors.textTertiary} />

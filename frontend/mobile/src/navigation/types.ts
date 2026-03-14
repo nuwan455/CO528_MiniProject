@@ -1,3 +1,5 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
+
 export type AuthStackParamList = {
   Welcome: undefined;
   Login: undefined;
@@ -5,12 +7,13 @@ export type AuthStackParamList = {
 };
 
 export type MainStackParamList = {
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<TabParamList> | undefined;
   PostDetail: { postId: string };
-  JobDetail: { jobId: string };
+  JobDetail: { jobId: string; focusApplications?: boolean };
   EventDetail: { eventId: string };
-  CreateJob: undefined;
-  CreateEvent: undefined;
+  CreateJob: { jobId?: string } | undefined;
+  CreateEvent: { eventId?: string } | undefined;
+  Messages: undefined;
   Conversation: { conversationId: string };
   CreatePost: undefined;
   EditProfile: undefined;
@@ -19,12 +22,14 @@ export type MainStackParamList = {
   ResearchList: undefined;
   ResearchDetail: { projectId: string };
   Notifications: undefined;
+  Analytics: undefined;
+  Moderation: undefined;
 };
 
 export type TabParamList = {
   Feed: undefined;
   Jobs: undefined;
   Events: undefined;
-  Messages: undefined;
+  Research: undefined;
   Profile: undefined;
 };

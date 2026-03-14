@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { CompositeNavigationProp } from '@react-navigation/native';
-import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainStackParamList, TabParamList } from '../navigation/types';
+import { MainStackParamList } from '../navigation/types';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import { Conversation, User } from '../types';
@@ -14,10 +12,7 @@ import { TextInput } from '../components/TextInput';
 import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type MessagesScreenProps = {
-  navigation: CompositeNavigationProp<
-    BottomTabNavigationProp<TabParamList, 'Messages'>,
-    NativeStackNavigationProp<MainStackParamList>
-  >;
+  navigation: NativeStackNavigationProp<MainStackParamList, 'Messages'>;
 };
 
 export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) => {
@@ -87,7 +82,7 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
                       setIsCreatingConversation(true);
                       try {
                         const response = await api.createConversation([candidate.id]);
-                        const conversationId = (response.data as any)?.id;
+                        const conversationId = (response.data as { id?: string } | undefined)?.id;
                         await refetch();
                         if (conversationId) {
                           navigation.navigate('Conversation', { conversationId });
@@ -111,7 +106,9 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ navigation }) =>
             ) : null}
           </View>
         }
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />
+        }
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState

@@ -47,16 +47,20 @@ export interface Job {
   requirements?: string[];
   salary?: string;
   postedBy: User;
+  applicationsCount?: number;
   applicationDeadline?: string;
   createdAt: string;
 }
 
 export interface JobApplication {
   id: string;
-  job: Job;
+  job?: Job;
   jobId?: string;
   status: 'applied' | 'reviewing' | 'accepted' | 'rejected';
   appliedAt: string;
+  resumeUrl?: string;
+  coverLetter?: string;
+  applicant?: User;
 }
 
 export interface Event {
@@ -110,9 +114,45 @@ export interface Notification {
   title: string;
   message: string;
   isRead: boolean;
+  relatedEntityType?: 'CONVERSATION' | 'JOB' | 'RESEARCH_PROJECT' | 'EVENT' | string;
   relatedUser?: User;
   relatedId?: string;
   createdAt: string;
+}
+
+export interface AnalyticsOverview {
+  activeUsers: number;
+  posts: number;
+  jobs: number;
+  applications: number;
+  eventRsvps: number;
+  mostActiveModules: Array<{
+    module: string;
+    count: number;
+  }>;
+}
+
+export interface AdminUserSummary {
+  id: string;
+  name: string;
+  email: string;
+  role: 'STUDENT' | 'ALUMNI' | 'ADMIN';
+  department?: string;
+  batchYear?: number;
+  createdAt: string;
+}
+
+export interface AdminReport {
+  users: number;
+  roleBreakdown: {
+    students: number;
+    alumni: number;
+    admins: number;
+  };
+  posts: number;
+  jobs: number;
+  events: number;
+  flaggedCount: number;
 }
 
 export interface ApiResponse<T = any> {

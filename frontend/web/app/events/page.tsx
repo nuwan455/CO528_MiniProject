@@ -103,7 +103,7 @@ export default function EventsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <CalendarPlus className="h-5 w-5 text-primary" />
-            {editingEventId ? "Edit Event" : userIsAdmin ? "Create Department Event" : "Create Alumni Event"}
+            {editingEventId ? "Edit Event" : "Create Department Event"}
           </CardTitle>
         </CardHeader>
           <CardContent>
@@ -188,9 +188,7 @@ export default function EventsPage() {
               />
               <div className="md:col-span-2 flex items-center justify-between gap-4">
                 <p className="text-sm text-muted-foreground">
-                  {userIsAdmin
-                    ? "Admins can publish official announcements and department events."
-                    : "Alumni can host professional, mentoring, and department-linked events."}
+                  Admins can publish official announcements and department events.
                 </p>
                 <div className="flex items-center gap-2">
                   {editingEventId ? (
@@ -206,7 +204,15 @@ export default function EventsPage() {
             </form>
           </CardContent>
         </Card>
-      ) : null}
+      ) : (
+        <Card className="mb-8 border-border/50 bg-card/50">
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">
+              Students and alumni can browse and RSVP to events here. Event publishing is reserved for admins.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="relative mb-8 max-w-2xl">
         <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
@@ -241,7 +247,7 @@ export default function EventsPage() {
                 helperText: userIsAdmin
                   ? "Admins publish and oversee official events. RSVP is optional for administrative accounts."
                   : "Students and alumni can RSVP to participate in department activities.",
-                canManage: Boolean(user && (user.role === "ADMIN" || event.createdBy.id === user.id)),
+                canManage: Boolean(user && user.role === "ADMIN"),
               }}
               onRsvp={async () => {
                 try {

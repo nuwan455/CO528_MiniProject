@@ -16,7 +16,7 @@ import { JobsService } from './jobs.service';
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
-  @Roles(Role.ALUMNI, Role.ADMIN)
+  @Roles(Role.ADMIN)
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateJobDto) {
     return this.jobsService.create(user, dto);
@@ -43,13 +43,13 @@ export class JobsController {
     return this.jobsService.findOne(id);
   }
 
-  @Roles(Role.ALUMNI, Role.ADMIN)
+  @Roles(Role.ADMIN)
   @Patch(':id')
   update(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() dto: UpdateJobDto) {
     return this.jobsService.update(id, user, dto);
   }
 
-  @Roles(Role.ALUMNI, Role.ADMIN)
+  @Roles(Role.ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.jobsService.remove(id, user);

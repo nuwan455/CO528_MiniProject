@@ -1,7 +1,22 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { ApiResponse, Comment, Conversation, Event, Job, JobApplication, Message, Notification, Post, ResearchProject, User } from '../types';
+import {
+  AdminReport,
+  AdminUserSummary,
+  AnalyticsOverview,
+  ApiResponse,
+  Comment,
+  Conversation,
+  Event,
+  Job,
+  JobApplication,
+  Message,
+  Notification,
+  Post,
+  ResearchProject,
+  User,
+} from '../types';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 
@@ -75,23 +90,23 @@ const splitName = (name: string) => {
   };
 };
 
-const normalizeUser = (user: any): User => {
-  const safeName = user.name || 'Department User';
+const normalizeUser = (user?: any): User => {
+  const safeName = user?.name || 'Department User';
   const { firstName, lastName } = splitName(safeName);
   return {
-    id: user.id,
-    email: user.email || '',
+    id: user?.id || '',
+    email: user?.email || '',
     name: safeName,
     firstName,
     lastName,
-    role: user.role,
-    bio: user.bio,
-    avatar: resolveAssetUrl(user.profileImageUrl),
-    department: user.department,
-    graduationYear: user.batchYear,
-    skills: user.skills || [],
-    headline: user.headline,
-    createdAt: user.createdAt,
+    role: user?.role || 'STUDENT',
+    bio: user?.bio,
+    avatar: resolveAssetUrl(user?.profileImageUrl),
+    department: user?.department,
+    graduationYear: user?.batchYear,
+    skills: user?.skills || [],
+    headline: user?.headline,
+    createdAt: user?.createdAt,
   };
 };
 
@@ -120,6 +135,21 @@ const normalizeJob = (job: any): Job => ({
   description: job.description,
   requirements: [],
   postedBy: normalizeUser(job.postedBy),
+  applicationsCount: job._count?.applications ?? 0,
+  applicationDeadline: job.deadline,
+  createdAt: job.createdAt,
+});
+
+const normalizeApplicationJob = (job: any): Job => ({
+  id: job.id,
+  title: job.title,
+  company: job.company,
+  location: job.location,
+  type: job.type.toLowerCase().replace('_', '-') as Job['type'],
+  description: job.description,
+  requirements: [],
+  postedBy: job.postedBy ? normalizeUser(job.postedBy) : normalizeUser(),
+  applicationsCount: job._count?.applications ?? 0,
   applicationDeadline: job.deadline,
   createdAt: job.createdAt,
 });
@@ -134,7 +164,7 @@ const normalizeEvent = (event: any): Event => ({
   organizer: normalizeUser(event.createdBy),
   attendeesCount: event._count?.rsvps ?? 0,
   isRsvped: false,
-  imageUrl: event.bannerUrl,
+  imageUrl: resolveAssetUrl(event.bannerUrl),
   createdAt: event.createdAt,
 });
 
@@ -437,9 +467,50 @@ export class ApiService {
     };
   }
 
+  async updateJob(
+    jobId: string,
+    data: {
+      title: string;
+      company: string;
+      location: string;
+      type: 'FULL_TIME' | 'PART_TIME' | 'INTERNSHIP' | 'CONTRACT';
+      description: string;
+      deadline: string;
+    },
+  ) {
+    const response = await this.client.patch<ApiResponse<any>>(`/jobs/${jobId}`, data);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeJob(response.data.data) : undefined,
+    };
+  }
+
+  async deleteJob(jobId: string) {
+    const response = await this.client.delete<ApiResponse>(`/jobs/${jobId}`);
+    return response.data;
+  }
+
   async applyToJob(jobId: string, data: any) {
     const response = await this.client.post<ApiResponse>(`/jobs/${jobId}/apply`, data);
     return response.data;
+  }
+
+  async getJobApplications(jobId: string) {
+    const response = await this.client.get<ApiResponse<any[]>>(`/jobs/${jobId}/applications`);
+    return {
+      ...response.data,
+      data: (response.data.data || []).map(
+        (application): JobApplication => ({
+          id: application.id,
+          jobId: application.jobId,
+          status: (application.status || 'APPLIED').toLowerCase(),
+          appliedAt: application.createdAt,
+          resumeUrl: resolveAssetUrl(application.resumeUrl),
+          coverLetter: application.coverLetter,
+          applicant: application.applicant ? normalizeUser(application.applicant) : undefined,
+        }),
+      ),
+    };
   }
 
   async getMyApplications() {
@@ -450,7 +521,7 @@ export class ApiService {
         (application): JobApplication => ({
           id: application.id,
           jobId: application.jobId,
-          job: normalizeJob(application.job),
+          job: application.job ? normalizeApplicationJob(application.job) : undefined,
           status: application.status.toLowerCase(),
           appliedAt: application.createdAt,
         }),
@@ -489,6 +560,29 @@ export class ApiService {
     };
   }
 
+  async updateEvent(
+    eventId: string,
+    data: {
+      title: string;
+      description: string;
+      location: string;
+      startTime: string;
+      endTime: string;
+      bannerUrl?: string;
+    },
+  ) {
+    const response = await this.client.patch<ApiResponse<any>>(`/events/${eventId}`, data);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeEvent(response.data.data) : undefined,
+    };
+  }
+
+  async deleteEvent(eventId: string) {
+    const response = await this.client.delete<ApiResponse>(`/events/${eventId}`);
+    return response.data;
+  }
+
   async rsvpEvent(eventId: string, status = 'GOING') {
     const response = await this.client.post<ApiResponse>(`/events/${eventId}/rsvp`, { status });
     return response.data;
@@ -516,6 +610,19 @@ export class ApiService {
       ...response.data,
       data: response.data.data ? normalizeResearchProject(response.data.data) : undefined,
     };
+  }
+
+  async updateResearchProject(projectId: string, data: any) {
+    const response = await this.client.patch<ApiResponse<any>>(`/research/projects/${projectId}`, data);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeResearchProject(response.data.data) : undefined,
+    };
+  }
+
+  async deleteResearchProject(projectId: string) {
+    const response = await this.client.delete<ApiResponse>(`/research/projects/${projectId}`);
+    return response.data;
   }
 
   async addResearchCollaborator(projectId: string, data: { userId: string; roleInProject: string }) {
@@ -579,6 +686,7 @@ export class ApiService {
           title: notification.title,
           message: notification.body,
           isRead: notification.isRead,
+          relatedEntityType: notification.relatedEntityType,
           relatedId: notification.relatedEntityId,
           createdAt: notification.createdAt,
         }),
@@ -597,7 +705,30 @@ export class ApiService {
   }
 
   async getAnalyticsOverview() {
-    const response = await this.client.get<ApiResponse>('/analytics/overview');
+    const response = await this.client.get<ApiResponse<AnalyticsOverview>>('/analytics/overview');
+    return response.data;
+  }
+
+  async getAdminUsers() {
+    const response = await this.client.get<ApiResponse<any[]>>('/admin/users');
+    return {
+      ...response.data,
+      data: (response.data.data || []).map(
+        (item): AdminUserSummary => ({
+          id: item.id,
+          name: item.name,
+          email: item.email,
+          role: item.role,
+          department: item.department ?? undefined,
+          batchYear: item.batchYear ?? undefined,
+          createdAt: item.createdAt,
+        }),
+      ),
+    };
+  }
+
+  async getAdminReports() {
+    const response = await this.client.get<ApiResponse<AdminReport>>('/admin/reports');
     return response.data;
   }
 }

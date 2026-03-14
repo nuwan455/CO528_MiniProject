@@ -9,6 +9,8 @@ export type MainStackParamList = {
   PostDetail: { postId: string };
   JobDetail: { jobId: string };
   EventDetail: { eventId: string };
+  CreateJob: undefined;
+  CreateEvent: undefined;
   Conversation: { conversationId: string };
   CreatePost: undefined;
   EditProfile: undefined;

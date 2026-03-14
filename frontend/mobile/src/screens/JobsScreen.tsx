@@ -1,19 +1,29 @@
 import React from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../navigation/types';
+import { MainStackParamList, TabParamList } from '../navigation/types';
+import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import { Job } from '../types';
 import { JobCard } from '../components/JobCard';
 import { EmptyState } from '../components/EmptyState';
-import { colors, spacing } from '../theme/tokens';
+import { Button } from '../components/Button';
+import { colors, spacing, typography } from '../theme/tokens';
 
 type JobsScreenProps = {
-  navigation: NativeStackNavigationProp<MainStackParamList, 'Jobs'>;
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, 'Jobs'>,
+    NativeStackNavigationProp<MainStackParamList>
+  >;
 };
 
 export const JobsScreen: React.FC<JobsScreenProps> = ({ navigation }) => {
+  const user = useAuthStore((state) => state.user);
+  const canPostJobs = user?.role === 'ADMIN' || user?.role === 'ALUMNI';
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['jobs'],
     queryFn: async () => {
@@ -34,6 +44,19 @@ export const JobsScreen: React.FC<JobsScreenProps> = ({ navigation }) => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.title}>Career Opportunities</Text>
+            <Text style={styles.subtitle}>
+              {canPostJobs
+                ? 'Browse opportunities or add a new one for students and alumni.'
+                : 'Browse internships and jobs posted by alumni and admins.'}
+            </Text>
+            {canPostJobs ? (
+              <Button title="Add Job" onPress={() => navigation.navigate('CreateJob')} />
+            ) : null}
+          </View>
+        }
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
@@ -55,5 +78,19 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.base,
+    paddingBottom: spacing['2xl'],
+  },
+  header: {
+    marginBottom: spacing.base,
+    gap: spacing.sm,
+  },
+  title: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: '700',
+  },
+  subtitle: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.base,
   },
 });

@@ -1,16 +1,22 @@
 import React from 'react';
-import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { View, StyleSheet, FlatList, RefreshControl, Text } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../navigation/types';
+import { MainStackParamList, TabParamList } from '../navigation/types';
 import { api } from '../services/api';
 import { Event } from '../types';
 import { EventCard } from '../components/EventCard';
 import { EmptyState } from '../components/EmptyState';
-import { colors, spacing } from '../theme/tokens';
+import { Button } from '../components/Button';
+import { colors, spacing, typography } from '../theme/tokens';
 
 type EventsScreenProps = {
-  navigation: NativeStackNavigationProp<MainStackParamList, 'Events'>;
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, 'Events'>,
+    NativeStackNavigationProp<MainStackParamList>
+  >;
 };
 
 export const EventsScreen: React.FC<EventsScreenProps> = ({ navigation }) => {
@@ -40,8 +46,8 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ navigation }) => {
                 isRsvped: !event.isRsvped,
                 attendeesCount: event.isRsvped ? event.attendeesCount - 1 : event.attendeesCount + 1,
               }
-            : event
-        )
+            : event,
+        ),
       );
 
       return { previousEvents };
@@ -67,12 +73,19 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ navigation }) => {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.title}>Department Events</Text>
+            <Text style={styles.subtitle}>Explore upcoming activities or publish a new event.</Text>
+            <Button title="Add Event" onPress={() => navigation.navigate('CreateEvent')} />
+          </View>
+        }
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
               icon="calendar-outline"
               title="No events scheduled"
-              message="Stay tuned for upcoming events"
+              message="Create one above or stay tuned for upcoming events"
             />
           ) : null
         }
@@ -88,5 +101,19 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing.base,
+    paddingBottom: spacing['2xl'],
+  },
+  header: {
+    marginBottom: spacing.base,
+    gap: spacing.sm,
+  },
+  title: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: '700',
+  },
+  subtitle: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.base,
   },
 });

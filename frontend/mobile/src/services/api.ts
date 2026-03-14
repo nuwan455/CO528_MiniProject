@@ -388,6 +388,21 @@ export class ApiService {
     };
   }
 
+  async createJob(data: {
+    title: string;
+    company: string;
+    location: string;
+    type: 'FULL_TIME' | 'PART_TIME' | 'INTERNSHIP' | 'CONTRACT';
+    description: string;
+    deadline: string;
+  }) {
+    const response = await this.client.post<ApiResponse<any>>('/jobs', data);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeJob(response.data.data) : undefined,
+    };
+  }
+
   async applyToJob(jobId: string, data: any) {
     const response = await this.client.post<ApiResponse>(`/jobs/${jobId}/apply`, data);
     return response.data;
@@ -419,6 +434,21 @@ export class ApiService {
 
   async getEvent(eventId: string) {
     const response = await this.client.get<ApiResponse<any>>(`/events/${eventId}`);
+    return {
+      ...response.data,
+      data: response.data.data ? normalizeEvent(response.data.data) : undefined,
+    };
+  }
+
+  async createEvent(data: {
+    title: string;
+    description: string;
+    location: string;
+    startTime: string;
+    endTime: string;
+    bannerUrl?: string;
+  }) {
+    const response = await this.client.post<ApiResponse<any>>('/events', data);
     return {
       ...response.data,
       data: response.data.data ? normalizeEvent(response.data.data) : undefined,

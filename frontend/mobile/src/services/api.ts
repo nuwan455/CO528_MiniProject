@@ -367,6 +367,11 @@ export class ApiService {
     };
   }
 
+  async deletePost(postId: string) {
+    const response = await this.client.delete<ApiResponse>(`/posts/${postId}`);
+    return response.data;
+  }
+
   async uploadMedia(file: { uri: string; name: string; type: string }) {
     const formData = new FormData();
     formData.append('file', file as any);

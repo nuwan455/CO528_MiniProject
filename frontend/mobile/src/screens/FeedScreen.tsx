@@ -10,6 +10,7 @@ import { api } from '../services/api';
 import { Post } from '../types';
 import { PostCard } from '../components/PostCard';
 import { EmptyState } from '../components/EmptyState';
+import { useAuthStore } from '../store/authStore';
 import { colors, spacing } from '../theme/tokens';
 
 type FeedScreenProps = {
@@ -21,6 +22,7 @@ type FeedScreenProps = {
 
 export const FeedScreen: React.FC<FeedScreenProps> = ({ navigation }) => {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['posts'],
@@ -77,6 +79,35 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({ navigation }) => {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (postId: string) => api.deletePost(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['post'] });
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to delete post');
+    },
+  });
+
+  const confirmDeletePost = (post: Post) => {
+    Alert.alert(
+      'Delete post',
+      'This will permanently remove your post from the feed.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteMutation.mutate(post.id),
+        },
+      ],
+    );
+  };
+
   const renderPost = ({ item }: { item: Post }) => (
     <PostCard
       post={item}
@@ -84,6 +115,9 @@ export const FeedScreen: React.FC<FeedScreenProps> = ({ navigation }) => {
       onLike={() => likeMutation.mutate({ postId: item.id, isLiked: item.isLiked })}
       onComment={() => navigation.navigate('PostDetail', { postId: item.id })}
       onShare={() => shareMutation.mutate(item)}
+      canDelete={item.author.id === user?.id}
+      isDeleting={deleteMutation.isPending && deleteMutation.variables === item.id}
+      onDelete={() => confirmDeletePost(item)}
     />
   );
 

@@ -130,7 +130,7 @@ export class PostsService {
   }
 
   async remove(id: string, user: AuthUser) {
-    await this.ensureOwnership(id, user);
+    await this.ensureDeleteOwnership(id, user);
     await this.prisma.post.delete({ where: { id } });
     return { message: 'Post deleted successfully', data: null };
   }
@@ -207,6 +207,17 @@ export class PostsService {
 
     if (post.authorId !== user.sub && user.role !== 'ADMIN') {
       throw new ForbiddenException('You cannot modify this post');
+    }
+  }
+
+  private async ensureDeleteOwnership(id: string, user: AuthUser): Promise<void> {
+    const post = await this.prisma.post.findUnique({ where: { id } });
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    if (post.authorId !== user.sub) {
+      throw new ForbiddenException('You can delete only your own posts');
     }
   }
 

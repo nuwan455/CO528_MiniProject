@@ -7,6 +7,8 @@ import { JobDetailScreen } from '../screens/JobDetailScreen';
 import { CreatePostScreen } from '../screens/CreatePostScreen';
 import { ConversationScreen } from '../screens/ConversationScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { ResearchListScreen } from '../screens/ResearchListScreen';
+import { ResearchDetailScreen } from '../screens/ResearchDetailScreen';
 import { colors, typography } from '../theme/tokens';
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -36,6 +38,8 @@ export const MainNavigator = () => {
       <Stack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: 'Create Post' }} />
       <Stack.Screen name="Conversation" component={ConversationScreen} options={{ title: 'Chat' }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
+      <Stack.Screen name="ResearchList" component={ResearchListScreen} options={{ title: 'Research Projects' }} />
+      <Stack.Screen name="ResearchDetail" component={ResearchDetailScreen} options={{ title: 'Project Details' }} />
     </Stack.Navigator>
   );
 };

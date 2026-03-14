@@ -28,6 +28,18 @@ const api = axios.create({
   },
 });
 
+export const resolveApiAssetUrl = (assetUrl?: string | null) => {
+  if (!assetUrl) {
+    return undefined;
+  }
+
+  if (/^(https?:\/\/|blob:|data:)/i.test(assetUrl)) {
+    return assetUrl;
+  }
+
+  return new URL(assetUrl, api.defaults.baseURL).toString();
+};
+
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {

@@ -82,14 +82,49 @@ export class ResearchService {
       where: { projectId_userId: { projectId: id, userId: dto.userId } },
       update: { roleInProject: dto.roleInProject },
       create: { projectId: id, userId: dto.userId, roleInProject: dto.roleInProject },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            headline: true,
+            profileImageUrl: true,
+          },
+        },
+      },
     });
+
+    await this.prisma.notification.create({
+      data: {
+        userId: dto.userId,
+        type: 'RESEARCH_COLLABORATION',
+        title: 'Research collaboration invitation',
+        body: 'You have been invited to join a research project.',
+        relatedEntityType: 'RESEARCH_PROJECT',
+        relatedEntityId: id,
+      },
+    });
+
     return { message: 'Collaborator saved successfully', data: collaborator };
   }
 
   async listCollaborators(id: string) {
     const items = await this.prisma.researchCollaborator.findMany({
       where: { projectId: id },
-      include: { user: { select: { id: true, name: true, email: true, headline: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            headline: true,
+            profileImageUrl: true,
+          },
+        },
+      },
     });
     return { message: 'Collaborators fetched successfully', data: items };
   }
@@ -105,9 +140,28 @@ export class ResearchService {
   }
 
   private readonly projectInclude = {
-    owner: { select: { id: true, name: true, role: true } },
+    owner: {
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        headline: true,
+        profileImageUrl: true,
+      },
+    },
     collaborators: {
-      include: { user: { select: { id: true, name: true, email: true, role: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            headline: true,
+            profileImageUrl: true,
+          },
+        },
+      },
     },
   } satisfies Prisma.ResearchProjectInclude;
 }

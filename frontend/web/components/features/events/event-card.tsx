@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { resolveApiAssetUrl } from "@/lib/api";
 import { Calendar, Clock, MapPin, Users } from "lucide-react";
-import Image from "next/image";
 
 interface EventCardProps {
   event: {
@@ -15,6 +15,9 @@ interface EventCardProps {
     image?: string | null;
     isRSVP?: boolean;
     host: string;
+    actionLabel?: string;
+    actionDisabled?: boolean;
+    helperText?: string;
   };
   onRsvp?: () => void;
 }
@@ -24,12 +27,10 @@ export function EventCard({ event, onRsvp }: EventCardProps) {
     <Card className="group flex h-full flex-col overflow-hidden border-border/50 bg-card/80 backdrop-blur-sm transition-all hover:border-primary/50 hover:shadow-md">
       <div className="relative h-48 w-full overflow-hidden bg-muted">
         {event.image ? (
-          <Image
-            src={event.image}
+          <img
+            src={resolveApiAssetUrl(event.image)}
             alt={event.title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            referrerPolicy="no-referrer"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
@@ -64,9 +65,17 @@ export function EventCard({ event, onRsvp }: EventCardProps) {
         </div>
       </CardContent>
       <CardFooter className="pt-0">
-        <Button className="w-full font-medium tracking-wide" variant={event.isRSVP ? "outline" : "default"} onClick={onRsvp}>
-          {event.isRSVP ? "Update RSVP" : "RSVP Now"}
-        </Button>
+        <div className="w-full space-y-2">
+          <Button
+            className="w-full font-medium tracking-wide"
+            variant={event.isRSVP ? "outline" : "default"}
+            onClick={onRsvp}
+            disabled={event.actionDisabled}
+          >
+            {event.actionLabel ?? (event.isRSVP ? "Update RSVP" : "RSVP Now")}
+          </Button>
+          {event.helperText ? <p className="text-xs text-muted-foreground">{event.helperText}</p> : null}
+        </div>
       </CardFooter>
     </Card>
   );

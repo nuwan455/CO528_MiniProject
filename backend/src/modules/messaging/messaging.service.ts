@@ -15,6 +15,31 @@ export class MessagingService {
       throw new ForbiddenException('Direct conversations require exactly two participants');
     }
 
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: participantIds } },
+      select: { id: true },
+    });
+
+    if (users.length !== participantIds.length) {
+      throw new NotFoundException('One or more conversation participants were not found');
+    }
+
+    if (dto.type === ConversationType.DIRECT) {
+      const existingConversation = await this.prisma.conversation.findFirst({
+        where: {
+          type: ConversationType.DIRECT,
+          AND: participantIds.map((participantId) => ({
+            participants: { some: { userId: participantId } },
+          })),
+        },
+        include: this.conversationInclude,
+      });
+
+      if (existingConversation && existingConversation.participants.length === participantIds.length) {
+        return { message: 'Conversation fetched successfully', data: existingConversation };
+      }
+    }
+
     const conversation = await this.prisma.conversation.create({
       data: {
         type: dto.type,
@@ -25,6 +50,20 @@ export class MessagingService {
       },
       include: this.conversationInclude,
     });
+
+    const recipients = participantIds.filter((participantId) => participantId !== user.sub);
+    if (recipients.length) {
+      await this.prisma.notification.createMany({
+        data: recipients.map((recipientId) => ({
+          userId: recipientId,
+          type: 'NEW_CONVERSATION',
+          title: 'New conversation started',
+          body: dto.title || 'Someone started a conversation with you.',
+          relatedEntityType: 'CONVERSATION',
+          relatedEntityId: conversation.id,
+        })),
+      });
+    }
 
     return { message: 'Conversation created successfully', data: conversation };
   }
@@ -70,6 +109,11 @@ export class MessagingService {
       include: { sender: { select: { id: true, name: true, role: true } } },
     });
 
+    await this.prisma.conversation.update({
+      where: { id },
+      data: { updatedAt: new Date() },
+    });
+
     const participants = await this.prisma.conversationParticipant.findMany({
       where: { conversationId: id, userId: { not: user.sub } },
       select: { userId: true },
@@ -77,7 +121,7 @@ export class MessagingService {
 
     if (participants.length) {
       await this.prisma.notification.createMany({
-        data: participants.map((participant) => ({
+        data: participants.map((participant: { userId: string }) => ({
           userId: participant.userId,
           type: 'NEW_MESSAGE',
           title: 'New message received',
@@ -112,7 +156,32 @@ export class MessagingService {
 
   private readonly conversationInclude = {
     participants: {
-      include: { user: { select: { id: true, name: true, email: true, role: true } } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            profileImageUrl: true,
+            headline: true,
+          },
+        },
+      },
+    },
+    messages: {
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            profileImageUrl: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
     },
     _count: { select: { messages: true } },
   } as const;

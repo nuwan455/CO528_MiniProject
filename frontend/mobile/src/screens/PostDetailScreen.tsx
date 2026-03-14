@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert, Share } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -44,9 +44,42 @@ export const PostDetailScreen: React.FC<PostDetailScreenProps> = ({ route }) => 
       return api.addComment(postId, content);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
       queryClient.invalidateQueries({ queryKey: ['comments', postId] });
       queryClient.invalidateQueries({ queryKey: ['post', postId] });
       setComment('');
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to add comment');
+    },
+  });
+
+  const likeMutation = useMutation({
+    mutationFn: async (targetPost: Post) => {
+      return targetPost.isLiked ? api.unlikePost(targetPost.id) : api.likePost(targetPost.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['post', postId] });
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to update like');
+    },
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: async (targetPost: Post) => {
+      await api.sharePost(targetPost.id);
+      await Share.share({
+        message: targetPost.content?.trim() || 'Check out this department feed post.',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['post', postId] });
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to share post');
     },
   });
 
@@ -82,13 +115,20 @@ export const PostDetailScreen: React.FC<PostDetailScreenProps> = ({ route }) => 
       <FlatList
         ListHeaderComponent={
           <View style={styles.postContainer}>
-            <PostCard post={post} onPress={() => {}} onLike={() => {}} onComment={() => {}} onShare={() => {}} />
+            <PostCard
+              post={post}
+              onPress={() => {}}
+              onLike={() => likeMutation.mutate(post)}
+              onComment={() => {}}
+              onShare={() => shareMutation.mutate(post)}
+            />
           </View>
         }
         data={comments || []}
         renderItem={renderComment}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={<Text style={styles.emptyState}>No comments yet. Be the first to respond.</Text>}
       />
 
       <View style={styles.inputContainer}>
@@ -114,6 +154,12 @@ const styles = StyleSheet.create({
   },
   postContainer: {
     padding: spacing.base,
+  },
+  emptyState: {
+    color: colors.textTertiary,
+    fontSize: typography.fontSize.sm,
+    paddingHorizontal: spacing.base,
+    paddingBottom: spacing.lg,
   },
   comment: {
     flexDirection: 'row',

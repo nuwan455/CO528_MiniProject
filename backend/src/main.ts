@@ -15,10 +15,19 @@ async function bootstrap(): Promise<void> {
   const config = app.get(AppConfigService);
 
   app.setGlobalPrefix(config.apiPrefix);
-  app.use(helmet());
+  app.use(
+    helmet({
+      // Static uploads get their own explicit header below.
+      crossOriginResourcePolicy: false,
+    }),
+  );
   app.use(cookieParser());
   app.useStaticAssets(join(process.cwd(), config.uploadDir), {
     prefix: `/${config.uploadDir}/`,
+    setHeaders: (res) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    },
   });
   app.enableCors({
     origin: true,

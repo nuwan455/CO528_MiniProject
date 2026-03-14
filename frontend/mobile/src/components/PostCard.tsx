@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../types';
 import { colors, spacing, radius, typography } from '../theme/tokens';
@@ -35,9 +35,25 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       <Text style={styles.content}>{post.content}</Text>
 
-      {post.images && post.images.length > 0 && (
-        <Image source={{ uri: post.images[0] }} style={styles.image} />
-      )}
+      {post.mediaUrl && post.mediaType === 'IMAGE' ? (
+        <Image source={{ uri: post.mediaUrl }} style={styles.image} />
+      ) : null}
+
+      {post.mediaUrl && post.mediaType === 'VIDEO' ? (
+        <TouchableOpacity
+          style={styles.videoCard}
+          activeOpacity={0.85}
+          onPress={() => Linking.openURL(post.mediaUrl as string)}
+        >
+          <View style={styles.videoIcon}>
+            <Ionicons name="play" size={20} color={colors.textPrimary} />
+          </View>
+          <View style={styles.videoCopy}>
+            <Text style={styles.videoTitle}>Video attachment</Text>
+            <Text style={styles.videoSubtitle}>Tap to open this uploaded video</Text>
+          </View>
+        </TouchableOpacity>
+      ) : null}
 
       <View style={styles.stats}>
         <Text style={styles.statText}>{post.likesCount} likes</Text>
@@ -61,8 +77,12 @@ export const PostCard: React.FC<PostCardProps> = ({
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.action} onPress={onShare}>
-          <Ionicons name="share-outline" size={20} color={colors.textSecondary} />
-          <Text style={styles.actionText}>Share</Text>
+          <Ionicons
+            name={post.isShared ? 'share' : 'share-outline'}
+            size={20}
+            color={post.isShared ? colors.accent : colors.textSecondary}
+          />
+          <Text style={[styles.actionText, post.isShared && styles.sharedText]}>Share</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -110,6 +130,38 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     backgroundColor: colors.surfaceElevated,
   },
+  videoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
+    padding: spacing.base,
+    marginBottom: spacing.md,
+  },
+  videoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoCopy: {
+    flex: 1,
+  },
+  videoTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.base,
+    fontWeight: '600',
+  },
+  videoSubtitle: {
+    color: colors.textTertiary,
+    fontSize: typography.fontSize.sm,
+    marginTop: 2,
+  },
   stats: {
     flexDirection: 'row',
     gap: spacing.base,
@@ -140,5 +192,8 @@ const styles = StyleSheet.create({
   },
   likedText: {
     color: colors.danger,
+  },
+  sharedText: {
+    color: colors.accent,
   },
 });

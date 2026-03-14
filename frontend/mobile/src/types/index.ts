@@ -18,11 +18,14 @@ export interface Post {
   id: string;
   content: string;
   author: User;
+  mediaUrl?: string;
+  mediaType?: 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'NONE';
   images?: string[];
   likesCount: number;
   commentsCount: number;
   sharesCount: number;
   isLiked: boolean;
+  isShared?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -74,8 +77,14 @@ export interface ResearchProject {
   id: string;
   title: string;
   description: string;
+  tags: string[];
+  documentUrl?: string;
   lead: User;
-  collaborators: User[];
+  collaborators: Array<{
+    id: string;
+    roleInProject: string;
+    user: User;
+  }>;
   createdAt: string;
 }
 

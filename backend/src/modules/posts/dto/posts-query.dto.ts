@@ -1,7 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PostVisibility } from '@prisma/client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from '../../../shared/dto/pagination-query.dto';
+
+const PostVisibility = {
+  PUBLIC: 'PUBLIC',
+  DEPARTMENT_ONLY: 'DEPARTMENT_ONLY',
+  ALUMNI_ONLY: 'ALUMNI_ONLY',
+} as const;
 
 export class PostsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional()
@@ -12,5 +17,5 @@ export class PostsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: PostVisibility })
   @IsEnum(PostVisibility)
   @IsOptional()
-  visibility?: PostVisibility;
+  visibility?: (typeof PostVisibility)[keyof typeof PostVisibility];
 }

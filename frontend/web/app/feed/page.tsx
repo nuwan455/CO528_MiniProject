@@ -11,6 +11,20 @@ import { PostComposer } from "@/components/features/feed/post-composer";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAuthStore } from "@/store/auth";
 
+function extractPostItems(apiData: ApiResponse<PaginatedResult<PostRecord>>["data"]): PostRecord[] {
+  const topLevel = apiData as Partial<PaginatedResult<PostRecord>>;
+  if (Array.isArray(topLevel?.items)) {
+    return topLevel.items;
+  }
+
+  const nested = (apiData as { data?: Partial<PaginatedResult<PostRecord>> })?.data;
+  if (Array.isArray(nested?.items)) {
+    return nested.items;
+  }
+
+  return [];
+}
+
 export default function FeedPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
@@ -21,7 +35,7 @@ export default function FeedPage() {
 
   const loadPosts = async () => {
     const { data } = await api.get<ApiResponse<PaginatedResult<PostRecord>>>("/posts");
-    setPosts(data.data.items);
+    setPosts(extractPostItems(data.data));
   };
 
   useEffect(() => {

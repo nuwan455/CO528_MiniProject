@@ -1,7 +1,27 @@
 import axios from 'axios';
 
+const resolveApiBaseUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  if (envUrl) {
+    return envUrl;
+  }
+
+  // Keep web and mobile on the same backend during local development.
+  if (process.env.NODE_ENV !== 'production') {
+    return 'http://localhost:4000/api/v1';
+  }
+
+  return 'https://140.245.230.95.sslip.io/api/v1';
+};
+
+const unwrapApiData = <T>(payload: any): T | undefined => {
+  if (!payload) return undefined;
+  if (payload.data !== undefined) return payload.data as T;
+  return payload as T;
+};
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'https://140.245.230.95.sslip.io/api/v1',
+  baseURL: resolveApiBaseUrl(),
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -33,11 +53,13 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken');
         if (refreshToken) {
           const res = await axios.post(`${api.defaults.baseURL}/auth/refresh`, { refreshToken });
-          const { tokens } = res.data.data;
-          localStorage.setItem('token', tokens.accessToken);
-          localStorage.setItem('refreshToken', tokens.refreshToken);
-          originalRequest.headers.Authorization = `Bearer ${tokens.accessToken}`;
-          return api(originalRequest);
+          const payload = unwrapApiData<{ tokens: { accessToken: string; refreshToken: string } }>(res.data?.data);
+          if (payload?.tokens) {
+            localStorage.setItem('token', payload.tokens.accessToken);
+            localStorage.setItem('refreshToken', payload.tokens.refreshToken);
+            originalRequest.headers.Authorization = `Bearer ${payload.tokens.accessToken}`;
+            return api(originalRequest);
+          }
         }
       } catch (refreshError) {
         // Refresh failed, logout

@@ -21,6 +21,20 @@ interface RegisterResponse {
   };
 }
 
+function extractRegisterPayload(apiData: ApiResponse<RegisterResponse>['data']) {
+  const topLevel = apiData as Partial<RegisterResponse>;
+  if (topLevel?.user && topLevel?.tokens) {
+    return topLevel as RegisterResponse;
+  }
+
+  const nested = (apiData as { data?: Partial<RegisterResponse> })?.data;
+  if (nested?.user && nested?.tokens) {
+    return nested as RegisterResponse;
+  }
+
+  throw new Error('Unexpected registration response format');
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
@@ -64,7 +78,7 @@ export default function RegisterPage() {
 
     try {
       const { data } = await api.post<ApiResponse<RegisterResponse>>("/auth/register", normalizedForm);
-      const { user, tokens } = data.data;
+      const { user, tokens } = extractRegisterPayload(data.data);
       localStorage.setItem("token", tokens.accessToken);
       localStorage.setItem("refreshToken", tokens.refreshToken);
       login(user, tokens.accessToken, tokens.refreshToken);

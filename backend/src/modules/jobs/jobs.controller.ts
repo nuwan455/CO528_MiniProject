@@ -16,7 +16,7 @@ import { JobsService } from './jobs.service';
 export class JobsController {
   constructor(private readonly jobsService: JobsService) {}
 
-  @Roles(Role.ALUMNI, Role.ADMIN)
+  @Roles(Role.ADMIN)
   @Post()
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateJobDto) {
     return this.jobsService.create(user, dto);

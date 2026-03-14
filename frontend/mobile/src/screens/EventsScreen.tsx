@@ -5,6 +5,7 @@ import { CompositeNavigationProp } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MainStackParamList, TabParamList } from '../navigation/types';
+import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import { Event } from '../types';
 import { EventCard } from '../components/EventCard';
@@ -20,7 +21,9 @@ type EventsScreenProps = {
 };
 
 export const EventsScreen: React.FC<EventsScreenProps> = ({ navigation }) => {
+  const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
+  const canCreateEvents = user?.role === 'ADMIN';
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['events'],
@@ -76,8 +79,14 @@ export const EventsScreen: React.FC<EventsScreenProps> = ({ navigation }) => {
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.title}>Department Events</Text>
-            <Text style={styles.subtitle}>Explore upcoming activities or publish a new event.</Text>
-            <Button title="Add Event" onPress={() => navigation.navigate('CreateEvent')} />
+            <Text style={styles.subtitle}>
+              {canCreateEvents
+                ? 'Explore upcoming activities or publish a new event.'
+                : 'Explore upcoming activities and RSVP to department events.'}
+            </Text>
+            {canCreateEvents ? (
+              <Button title="Add Event" onPress={() => navigation.navigate('CreateEvent')} />
+            ) : null}
           </View>
         }
         ListEmptyComponent={

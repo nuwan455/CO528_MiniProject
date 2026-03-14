@@ -18,11 +18,15 @@ interface EventCardProps {
     actionLabel?: string;
     actionDisabled?: boolean;
     helperText?: string;
+    canManage?: boolean;
   };
   onRsvp?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }
 
-export function EventCard({ event, onRsvp }: EventCardProps) {
+export function EventCard({ event, onRsvp, onEdit, onDelete, isDeleting = false }: EventCardProps) {
   return (
     <Card className="group flex h-full flex-col overflow-hidden border-border/50 bg-card/80 backdrop-blur-sm transition-all hover:border-primary/50 hover:shadow-md">
       <div className="relative h-48 w-full overflow-hidden bg-muted">
@@ -67,6 +71,7 @@ export function EventCard({ event, onRsvp }: EventCardProps) {
       <CardFooter className="pt-0">
         <div className="w-full space-y-2">
           <Button
+            type="button"
             className="w-full font-medium tracking-wide"
             variant={event.isRSVP ? "outline" : "default"}
             onClick={onRsvp}
@@ -74,6 +79,16 @@ export function EventCard({ event, onRsvp }: EventCardProps) {
           >
             {event.actionLabel ?? (event.isRSVP ? "Update RSVP" : "RSVP Now")}
           </Button>
+          {event.canManage ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant="outline" onClick={onEdit}>
+                Edit
+              </Button>
+              <Button type="button" variant="destructive" onClick={onDelete} disabled={isDeleting}>
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          ) : null}
           {event.helperText ? <p className="text-xs text-muted-foreground">{event.helperText}</p> : null}
         </div>
       </CardFooter>

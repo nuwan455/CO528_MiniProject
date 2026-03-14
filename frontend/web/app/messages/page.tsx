@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { useRouter, useSearchParams } from "next/navigation";
 import api, { resolveApiAssetUrl } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/form-validation";
 import { ApiResponse, ConversationRecord, PaginatedResult, WebUser } from "@/lib/types";
@@ -14,6 +15,8 @@ import { useAuthStore } from "@/store/auth";
 import { Search } from "lucide-react";
 
 export default function MessagesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const { showToast } = useToast();
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
@@ -23,12 +26,16 @@ export default function MessagesPage() {
   const [searchResults, setSearchResults] = useState<WebUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isStartingConversation, setIsStartingConversation] = useState(false);
+  const requestedConversationId = searchParams.get("conversationId");
 
   const loadConversations = async () => {
     const { data } = await api.get<ApiResponse<ConversationRecord[]>>("/messages/conversations");
     const items = data.data;
     setConversations(items);
-    if (!activeId && items[0]) {
+    if (requestedConversationId && items.some((conversation) => conversation.id === requestedConversationId)) {
+      setActiveId(requestedConversationId);
+      router.replace("/messages", { scroll: false });
+    } else if (!activeId && items[0]) {
       setActiveId(items[0].id);
     }
   };
@@ -41,6 +48,13 @@ export default function MessagesPage() {
   useEffect(() => {
     loadConversations().catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (requestedConversationId && conversations.some((conversation) => conversation.id === requestedConversationId)) {
+      setActiveId(requestedConversationId);
+      router.replace("/messages", { scroll: false });
+    }
+  }, [requestedConversationId, conversations, router]);
 
   useEffect(() => {
     if (activeId) {

@@ -48,6 +48,9 @@ interface ProjectCardProps {
   onInviteQueryChange?: (value: string) => void;
   onInviteRoleChange?: (value: string) => void;
   onInvite?: (userId: string) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }
 
 export function ProjectCard({
@@ -62,6 +65,9 @@ export function ProjectCard({
   onInviteQueryChange,
   onInviteRoleChange,
   onInvite,
+  onEdit,
+  onDelete,
+  isDeleting = false,
 }: ProjectCardProps) {
   return (
     <Card className="group flex h-full flex-col border-border/50 bg-card/80 backdrop-blur-sm transition-all hover:border-primary/50 hover:shadow-md">
@@ -158,7 +164,7 @@ export function ProjectCard({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-foreground">{collaborator.user.name}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {collaborator.roleInProject} · {collaborator.user.email}
+                          {collaborator.roleInProject} | {collaborator.user.email}
                         </p>
                       </div>
                     </div>
@@ -203,14 +209,10 @@ export function ProjectCard({
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-foreground">{candidate.name}</p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {candidate.email} · {candidate.role.replaceAll("_", " ")}
+                            {candidate.email} | {candidate.role.replaceAll("_", " ")}
                           </p>
                         </div>
-                        <Button
-                          size="sm"
-                          disabled={isInviting}
-                          onClick={() => onInvite?.(candidate.id)}
-                        >
+                        <Button type="button" size="sm" disabled={isInviting} onClick={() => onInvite?.(candidate.id)}>
                           Invite
                         </Button>
                       </div>
@@ -221,18 +223,32 @@ export function ProjectCard({
                     <p className="text-sm text-muted-foreground">Search for users to invite them into this project.</p>
                   )}
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" onClick={onEdit}>
+                    Edit Project
+                  </Button>
+                  <Button type="button" variant="destructive" onClick={onDelete} disabled={isDeleting}>
+                    {isDeleting ? "Deleting..." : "Delete Project"}
+                  </Button>
+                </div>
               </div>
             ) : null}
           </div>
         ) : null}
       </CardContent>
       <CardFooter className="flex items-center justify-between border-t border-border/50 bg-muted/10 px-6 py-4 pt-4">
-        <Button variant="ghost" size="sm" className="gap-2 -ml-2 text-muted-foreground hover:text-foreground" onClick={onToggleExpand}>
+        <Button type="button" variant="ghost" size="sm" className="gap-2 -ml-2 text-muted-foreground hover:text-foreground" onClick={onToggleExpand}>
           <FileText className="h-4 w-4" />
           {isExpanded ? "Hide Details" : "Details"}
         </Button>
-        <Button size="sm" variant={project.isCollaborator ? "secondary" : "default"} className="gap-2 font-medium" onClick={onToggleExpand}>
-          {project.isCollaborator ? "Manage" : "View Collaboration"}
+        <Button
+          type="button"
+          size="sm"
+          variant={project.canManage || project.isCollaborator ? "secondary" : "default"}
+          className="gap-2 font-medium"
+          onClick={onToggleExpand}
+        >
+          {project.canManage || project.isCollaborator ? "Manage" : "View Collaboration"}
         </Button>
       </CardFooter>
     </Card>

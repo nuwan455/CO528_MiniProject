@@ -1,15 +1,26 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../navigation/types';
+import { Ionicons } from '@expo/vector-icons';
+import { MainStackParamList, TabParamList } from '../navigation/types';
 import { useAuthStore } from '../store/authStore';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { colors, spacing, radius, typography } from '../theme/tokens';
 
 type ProfileScreenProps = {
-  navigation: NativeStackNavigationProp<MainStackParamList, 'Profile'>;
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, 'Profile'>,
+    NativeStackNavigationProp<MainStackParamList>
+  >;
+};
+
+type MenuItem = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
 };
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
@@ -21,12 +32,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   if (!user) return null;
 
-  const menuItems = [
-    { icon: 'briefcase-outline', label: 'My Applications', screen: 'MyApplications' as const },
-    { icon: 'flask-outline', label: 'Research Projects', screen: 'ResearchList' as const },
-    { icon: 'notifications-outline', label: 'Notifications', screen: 'Notifications' as const },
-    { icon: 'person-outline', label: 'Edit Profile', screen: 'EditProfile' as const },
+  const menuItems: MenuItem[] = [
+    ...(user.role !== 'ADMIN'
+      ? [
+          {
+            icon: 'briefcase-outline' as const,
+            label: 'My Applications',
+            onPress: () => navigation.navigate('MyApplications'),
+          },
+        ]
+      : []),
+    {
+      icon: 'person-outline',
+      label: 'Edit Profile',
+      onPress: () => navigation.navigate('EditProfile'),
+    },
   ];
+
+  const adminItems: MenuItem[] =
+    user.role === 'ADMIN'
+      ? [
+          {
+            icon: 'stats-chart-outline',
+            label: 'Analytics',
+            onPress: () => navigation.navigate('Analytics'),
+          },
+          {
+            icon: 'shield-checkmark-outline',
+            label: 'Moderation',
+            onPress: () => navigation.navigate('Moderation'),
+          },
+        ]
+      : [];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -42,29 +79,53 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{user.role}</Text>
           </View>
-          {user.department && (
+          {user.department ? (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{user.department}</Text>
             </View>
-          )}
+          ) : null}
         </View>
       </View>
 
-      <View style={styles.menu}>
-        {menuItems.map((item) => (
-          <TouchableOpacity
-            key={item.screen}
-            style={styles.menuItem}
-            onPress={() => navigation.navigate(item.screen)}
-          >
-            <View style={styles.menuItemLeft}>
-              <Ionicons name={item.icon} size={20} color={colors.textSecondary} />
-              <Text style={styles.menuItemText}>{item.label}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-          </TouchableOpacity>
-        ))}
+      <View style={styles.menuSection}>
+        <Text style={styles.sectionTitle}>Account</Text>
+        <View style={styles.menu}>
+          {menuItems.map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={styles.menuItem}
+              onPress={item.onPress}
+            >
+              <View style={styles.menuItemLeft}>
+                <Ionicons name={item.icon} size={20} color={colors.textSecondary} />
+                <Text style={styles.menuItemText}>{item.label}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
+
+      {adminItems.length ? (
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>Admin</Text>
+          <View style={styles.menu}>
+            {adminItems.map((item) => (
+              <TouchableOpacity
+                key={item.label}
+                style={styles.menuItem}
+                onPress={item.onPress}
+              >
+                <View style={styles.menuItemLeft}>
+                  <Ionicons name={item.icon} size={20} color={colors.accent} />
+                  <Text style={styles.menuItemText}>{item.label}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.actions}>
         <Button title="Log Out" onPress={handleLogout} variant="secondary" />
@@ -123,15 +184,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'capitalize',
   },
-  menu: {
+  menuSection: {
     marginTop: spacing.base,
+  },
+  sectionTitle: {
+    color: colors.textTertiary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    paddingHorizontal: spacing.base,
+    marginBottom: spacing.sm,
+  },
+  menu: {
+    backgroundColor: colors.surface,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing.base,
-    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },

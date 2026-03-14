@@ -1,18 +1,35 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { api } from '../services/api';
 import { Notification } from '../types';
+import { MainStackParamList } from '../navigation/types';
 import { Button } from '../components/Button';
 import { EmptyState } from '../components/EmptyState';
 import { colors, spacing, typography } from '../theme/tokens';
 import { formatDistanceToNow } from '../utils/date';
+import { useAuthStore } from '../store/authStore';
 
-export const NotificationsScreen: React.FC = () => {
+type NotificationsScreenProps = {
+  navigation: NativeStackNavigationProp<MainStackParamList, 'Notifications'>;
+};
+
+const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
+  NEW_MESSAGE: 'chatbubble-ellipses-outline',
+  NEW_CONVERSATION: 'chatbubbles-outline',
+  JOB_APPLICATION: 'briefcase-outline',
+  RESEARCH_COLLABORATION: 'flask-outline',
+  EVENT: 'calendar-outline',
+};
+
+export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ navigation }) => {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-  const { data: notifications } = useQuery({
+  const { data: notifications, isLoading, isError, refetch } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
       const response = await api.getNotifications();
@@ -38,13 +55,59 @@ export const NotificationsScreen: React.FC = () => {
     },
   });
 
+  const visibleNotifications = useMemo(
+    () => (notifications || []).filter((notification) => (filter === 'unread' ? !notification.isRead : true)),
+    [filter, notifications],
+  );
+
+  const unreadCount = (notifications || []).filter((notification) => !notification.isRead).length;
+
+  const openRelatedScreen = (notification: Notification) => {
+    switch (notification.relatedEntityType) {
+      case 'CONVERSATION':
+        if (notification.relatedId) {
+          navigation.navigate('Conversation', { conversationId: notification.relatedId });
+        }
+        return;
+      case 'JOB':
+        if (notification.relatedId) {
+          navigation.navigate('JobDetail', {
+            jobId: notification.relatedId,
+            focusApplications: user?.role === 'ADMIN',
+          });
+        }
+        return;
+      case 'RESEARCH_PROJECT':
+        if (notification.relatedId) {
+          navigation.navigate('ResearchDetail', { projectId: notification.relatedId });
+        }
+        return;
+      case 'EVENT':
+        if (notification.relatedId) {
+          navigation.navigate('EventDetail', { eventId: notification.relatedId });
+        }
+        return;
+      default:
+        return;
+    }
+  };
+
   const renderNotification = ({ item }: { item: Notification }) => (
     <TouchableOpacity
       style={[styles.notification, !item.isRead && styles.unread]}
-      onPress={() => !item.isRead && markReadMutation.mutate(item.id)}
+      onPress={async () => {
+        try {
+          if (!item.isRead) {
+            await markReadMutation.mutateAsync(item.id);
+          }
+          openRelatedScreen(item);
+        } catch {
+          Alert.alert('Notification update failed', 'Unable to open this notification right now.');
+        }
+      }}
     >
       <View style={styles.iconWrap}>
-        <Ionicons name="notifications" size={18} color={colors.accent} />
+        <Ionicons name={iconMap[item.type] || 'notifications-outline'} size={18} color={colors.accent} />
       </View>
       <View style={styles.content}>
         <Text style={styles.title}>{item.title}</Text>
@@ -58,11 +121,32 @@ export const NotificationsScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={notifications || []}
+        data={visibleNotifications}
         renderItem={renderNotification}
         keyExtractor={(item) => item.id}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
         ListHeaderComponent={
           <View style={styles.header}>
+            <Text style={styles.headerTitle}>Notifications</Text>
+            <Text style={styles.headerSubtitle}>
+              {unreadCount ? `${unreadCount} unread updates across jobs, research, messages, and events.` : "You're all caught up."}
+            </Text>
+            <View style={styles.filterRow}>
+              <Button
+                title="All"
+                onPress={() => setFilter('all')}
+                variant={filter === 'all' ? 'primary' : 'secondary'}
+                size="sm"
+                style={styles.filterButton}
+              />
+              <Button
+                title="Unread"
+                onPress={() => setFilter('unread')}
+                variant={filter === 'unread' ? 'primary' : 'secondary'}
+                size="sm"
+                style={styles.filterButton}
+              />
+            </View>
             <Button
               title="Mark all as read"
               onPress={() => markAllReadMutation.mutate()}
@@ -72,11 +156,13 @@ export const NotificationsScreen: React.FC = () => {
           </View>
         }
         ListEmptyComponent={
-          <EmptyState
-            icon="notifications-outline"
-            title="No notifications"
-            message="You're all caught up"
-          />
+          !isLoading ? (
+            <EmptyState
+              icon={isError ? 'alert-circle-outline' : 'notifications-outline'}
+              title={isError ? 'Notifications unavailable' : 'No notifications'}
+              message={isError ? 'Pull to retry loading your notifications.' : "You're all caught up"}
+            />
+          ) : null
         }
       />
     </View>
@@ -91,6 +177,25 @@ const styles = StyleSheet.create({
   header: {
     padding: spacing.base,
     paddingBottom: 0,
+  },
+  headerTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  headerSubtitle: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    marginBottom: spacing.base,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.base,
+  },
+  filterButton: {
+    flex: 1,
   },
   notification: {
     flexDirection: 'row',

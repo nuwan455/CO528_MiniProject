@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/form-validation";
 import {
@@ -13,17 +14,25 @@ import {
 import { ProjectCard } from "@/components/features/research/project-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast-provider";
 import { Search } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 
 export default function ResearchPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const { showToast } = useToast();
+  const editorCardRef = useRef<HTMLDivElement | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [projects, setProjects] = useState<ResearchProjectRecord[]>([]);
   const [query, setQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<ResearchProjectRecord | null>(null);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [searchingProjectId, setSearchingProjectId] = useState<string | null>(null);
   const [invitingProjectId, setInvitingProjectId] = useState<string | null>(null);
@@ -36,6 +45,18 @@ export default function ResearchPage() {
     tags: "",
   });
   const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const projectTargetId = searchParams.get("project");
+
+  const editingProject = useMemo(
+    () => projects.find((project) => project.id === editingProjectId) ?? null,
+    [editingProjectId, projects],
+  );
+
+  const resetProjectForm = () => {
+    setProjectForm({ title: "", description: "", tags: "" });
+    setDocumentFile(null);
+    setEditingProjectId(null);
+  };
 
   const loadProjects = async () => {
     const { data } = await api.get<ApiResponse<PaginatedResult<ResearchProjectRecord>>>("/research/projects");
@@ -45,6 +66,23 @@ export default function ResearchPage() {
   useEffect(() => {
     loadProjects().catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!projectTargetId || !projects.length) {
+      return;
+    }
+
+    const targetProject = projects.find((project) => project.id === projectTargetId);
+    if (!targetProject) {
+      return;
+    }
+
+    setExpandedProjectId(projectTargetId);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`research-project-${projectTargetId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    router.replace("/research", { scroll: false });
+  }, [projectTargetId, projects, router]);
 
   useEffect(() => {
     const activeProjectId = expandedProjectId;
@@ -80,6 +118,11 @@ export default function ResearchPage() {
     [projects, query],
   );
 
+  const focusProjectEditor = () => {
+    editorCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.requestAnimationFrame(() => titleInputRef.current?.focus());
+  };
+
   return (
     <div className="py-8">
       <div className="mb-8">
@@ -87,9 +130,9 @@ export default function ResearchPage() {
         <p className="mt-2 text-muted-foreground">Create projects, share working documents, and invite collaborators.</p>
       </div>
 
-      <Card className="mb-8 border-border/50 bg-card/80">
+      <Card ref={editorCardRef} className="mb-8 border-border/50 bg-card/80">
         <CardHeader>
-          <CardTitle>Create Research Project</CardTitle>
+          <CardTitle>{editingProjectId ? "Edit Research Project" : "Create Research Project"}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -111,28 +154,35 @@ export default function ResearchPage() {
                   uploadedDocument = data.data;
                 }
 
-                await api.post("/research/projects", {
+                const payload = {
                   title: projectForm.title,
                   description: projectForm.description,
                   tags: projectForm.tags
                     .split(",")
                     .map((tag) => tag.trim())
                     .filter(Boolean),
-                  documentUrl: uploadedDocument?.documentUrl,
-                });
+                  documentUrl: uploadedDocument?.documentUrl ?? editingProject?.documentUrl ?? undefined,
+                };
 
-                setProjectForm({ title: "", description: "", tags: "" });
-                setDocumentFile(null);
+                if (editingProjectId) {
+                  await api.patch(`/research/projects/${editingProjectId}`, payload);
+                } else {
+                  await api.post("/research/projects", payload);
+                }
+
+                resetProjectForm();
                 await loadProjects();
                 showToast({
-                  title: "Project created",
-                  description: "Your research project is now ready for collaboration.",
+                  title: editingProjectId ? "Project updated" : "Project created",
+                  description: editingProjectId
+                    ? "Your research project changes are now live."
+                    : "Your research project is now ready for collaboration.",
                   variant: "success",
                 });
               } catch (error) {
                 showToast({
-                  title: "Project creation failed",
-                  description: getApiErrorMessage(error, "Unable to create this research project."),
+                  title: editingProjectId ? "Project update failed" : "Project creation failed",
+                  description: getApiErrorMessage(error, editingProjectId ? "Unable to update this research project." : "Unable to create this research project."),
                   variant: "error",
                 });
               } finally {
@@ -141,6 +191,7 @@ export default function ResearchPage() {
             }}
           >
             <Input
+              ref={titleInputRef}
               value={projectForm.title}
               onChange={(e) => setProjectForm((current) => ({ ...current, title: e.target.value }))}
               placeholder="Project title"
@@ -164,6 +215,9 @@ export default function ResearchPage() {
                 <p className="text-xs text-muted-foreground">
                   Upload a proposal, literature review, or draft paper to share with collaborators.
                 </p>
+                {editingProject?.documentUrl ? (
+                  <p className="mt-2 text-xs text-muted-foreground">Current document will be kept unless you upload a new file.</p>
+                ) : null}
               </div>
               <div className="flex items-center gap-3">
                 <Input
@@ -171,9 +225,16 @@ export default function ResearchPage() {
                   onChange={(e) => setDocumentFile(e.target.files?.[0] ?? null)}
                   className="max-w-xs"
                 />
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Creating..." : "Create Project"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {editingProjectId ? (
+                    <Button type="button" variant="outline" onClick={resetProjectForm}>
+                      Cancel
+                    </Button>
+                  ) : null}
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (editingProjectId ? "Saving..." : "Creating...") : editingProjectId ? "Save Project" : "Create Project"}
+                  </Button>
+                </div>
               </div>
             </div>
           </form>
@@ -194,80 +255,126 @@ export default function ResearchPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
         {filteredProjects.map((project) => {
           const isOwner = project.owner.id === user?.id;
+          const canManageProject = Boolean(user && (isOwner || user.role === "ADMIN"));
           const isCollaborator = Boolean(
             user && (isOwner || project.collaborators.some((entry) => entry.user.id === user.id)),
           );
 
           return (
-            <ProjectCard
-              key={project.id}
-              project={{
-                id: project.id,
-                title: project.title,
-                description: project.description,
-                status: project.collaborators.length > 0 ? "Active" : "Recruiting",
-                documentUrl: project.documentUrl,
-                lead: {
-                  name: project.owner.name,
-                  headline: project.owner.headline,
-                  avatar: project.owner.profileImageUrl,
-                },
-                collaborators: project.collaborators.map((entry) => ({
-                  id: entry.id,
-                  roleInProject: entry.roleInProject,
-                  user: {
-                    id: entry.user.id,
-                    name: entry.user.name,
-                    email: entry.user.email,
-                    profileImageUrl: entry.user.profileImageUrl,
+            <div key={project.id} id={`research-project-${project.id}`}>
+              <ProjectCard
+                project={{
+                  id: project.id,
+                  title: project.title,
+                  description: project.description,
+                  status: project.collaborators.length > 0 ? "Active" : "Recruiting",
+                  documentUrl: project.documentUrl,
+                  lead: {
+                    name: project.owner.name,
+                    headline: project.owner.headline,
+                    avatar: project.owner.profileImageUrl,
                   },
-                })),
-                tags: project.tags,
-                isCollaborator,
-                canManage: isOwner,
-              }}
-              isExpanded={expandedProjectId === project.id}
-              inviteQuery={inviteQueries[project.id] ?? ""}
-              inviteRole={inviteRoles[project.id] ?? "Collaborator"}
-              inviteResults={inviteResults[project.id] ?? []}
-              isSearching={searchingProjectId === project.id}
-              isInviting={invitingProjectId === project.id}
-              onToggleExpand={() =>
-                setExpandedProjectId((current) => (current === project.id ? null : project.id))
-              }
-              onInviteQueryChange={(value) =>
-                setInviteQueries((current) => ({ ...current, [project.id]: value }))
-              }
-              onInviteRoleChange={(value) =>
-                setInviteRoles((current) => ({ ...current, [project.id]: value }))
-              }
-              onInvite={async (userId) => {
-                setInvitingProjectId(project.id);
-                try {
-                  await api.post(`/research/projects/${project.id}/collaborators`, {
-                    userId,
-                    roleInProject: inviteRoles[project.id] ?? "Collaborator",
-                  });
-                  await loadProjects();
-                  showToast({
-                    title: "Collaborator invited",
-                    description: "The user has been added to the research project.",
-                    variant: "success",
-                  });
-                } catch (error) {
-                  showToast({
-                    title: "Invitation failed",
-                    description: getApiErrorMessage(error, "Unable to add this collaborator."),
-                    variant: "error",
-                  });
-                } finally {
-                  setInvitingProjectId((current) => (current === project.id ? null : current));
+                  collaborators: project.collaborators.map((entry) => ({
+                    id: entry.id,
+                    roleInProject: entry.roleInProject,
+                    user: {
+                      id: entry.user.id,
+                      name: entry.user.name,
+                      email: entry.user.email,
+                      profileImageUrl: entry.user.profileImageUrl,
+                    },
+                  })),
+                  tags: project.tags,
+                  isCollaborator,
+                  canManage: canManageProject,
+                }}
+                isExpanded={expandedProjectId === project.id}
+                inviteQuery={inviteQueries[project.id] ?? ""}
+                inviteRole={inviteRoles[project.id] ?? "Collaborator"}
+                inviteResults={inviteResults[project.id] ?? []}
+                isSearching={searchingProjectId === project.id}
+                isInviting={invitingProjectId === project.id}
+                onToggleExpand={() =>
+                  setExpandedProjectId((current) => (current === project.id ? null : project.id))
                 }
-              }}
-            />
+                onInviteQueryChange={(value) =>
+                  setInviteQueries((current) => ({ ...current, [project.id]: value }))
+                }
+                onInviteRoleChange={(value) =>
+                  setInviteRoles((current) => ({ ...current, [project.id]: value }))
+                }
+                onInvite={async (userId) => {
+                  setInvitingProjectId(project.id);
+                  try {
+                    await api.post(`/research/projects/${project.id}/collaborators`, {
+                      userId,
+                      roleInProject: inviteRoles[project.id] ?? "Collaborator",
+                    });
+                    await loadProjects();
+                    showToast({
+                      title: "Collaborator invited",
+                      description: "The user has been added to the research project.",
+                      variant: "success",
+                    });
+                  } catch (error) {
+                    showToast({
+                      title: "Invitation failed",
+                      description: getApiErrorMessage(error, "Unable to add this collaborator."),
+                      variant: "error",
+                    });
+                  } finally {
+                    setInvitingProjectId((current) => (current === project.id ? null : current));
+                  }
+                }}
+                onEdit={() => {
+                  setEditingProjectId(project.id);
+                  setProjectForm({
+                    title: project.title,
+                    description: project.description,
+                    tags: project.tags.join(", "),
+                  });
+                  setDocumentFile(null);
+                  focusProjectEditor();
+                }}
+                onDelete={() => setProjectToDelete(project)}
+                isDeleting={deletingProjectId === project.id}
+              />
+            </div>
           );
         })}
       </div>
+      <ConfirmDialog
+        open={Boolean(projectToDelete)}
+        title="Delete research project?"
+        description={
+          projectToDelete
+            ? `This will permanently remove "${projectToDelete.title}" and its collaborator setup from the platform. This action cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete Project"
+        isConfirming={Boolean(projectToDelete && deletingProjectId === projectToDelete.id)}
+        onCancel={() => setProjectToDelete(null)}
+        onConfirm={async () => {
+          if (!projectToDelete) {
+            return;
+          }
+
+          setDeletingProjectId(projectToDelete.id);
+          try {
+            await api.delete(`/research/projects/${projectToDelete.id}`);
+            if (editingProjectId === projectToDelete.id) {
+              resetProjectForm();
+            }
+            await loadProjects();
+            showToast({ title: "Project deleted", description: "The research project has been removed.", variant: "success" });
+            setProjectToDelete(null);
+          } catch (error) {
+            showToast({ title: "Delete failed", description: getApiErrorMessage(error, "Unable to delete this project."), variant: "error" });
+          } finally {
+            setDeletingProjectId((current) => (current === projectToDelete.id ? null : current));
+          }
+        }}
+      />
     </div>
   );
 }

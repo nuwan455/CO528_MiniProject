@@ -9,9 +9,11 @@ import {
   Alert,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as DocumentPicker from 'expo-document-picker';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../navigation/types';
+import * as DocumentPicker from 'expo-document-picker';
+import { MainStackParamList, TabParamList } from '../navigation/types';
 import { api } from '../services/api';
 import { ResearchProject } from '../types';
 import { Button } from '../components/Button';
@@ -20,7 +22,10 @@ import { EmptyState } from '../components/EmptyState';
 import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type ResearchListScreenProps = {
-  navigation: NativeStackNavigationProp<MainStackParamList, 'ResearchList'>;
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, 'Research'>,
+    NativeStackNavigationProp<MainStackParamList>
+  >;
 };
 
 type SelectedDocument = {
@@ -56,7 +61,10 @@ export const ResearchListScreen: React.FC<ResearchListScreenProps> = ({ navigati
       return api.createResearchProject({
         title: title.trim(),
         description: description.trim(),
-        tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean),
+        tags: tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
         documentUrl: uploadedDocument?.documentUrl,
       });
     },
@@ -104,12 +112,16 @@ export const ResearchListScreen: React.FC<ResearchListScreenProps> = ({ navigati
       <FlatList
         data={data || []}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />
+        }
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.title}>Research Collaboration</Text>
-            <Text style={styles.subtitle}>Create projects, share documents, and invite collaborators.</Text>
+            <Text style={styles.subtitle}>
+              Create projects, share documents, and invite collaborators.
+            </Text>
 
             <View style={styles.form}>
               <TextInput value={title} onChangeText={setTitle} placeholder="Project title" />
@@ -123,13 +135,21 @@ export const ResearchListScreen: React.FC<ResearchListScreenProps> = ({ navigati
               />
               <TextInput value={tags} onChangeText={setTags} placeholder="Tags, comma separated" />
 
-              <TouchableOpacity style={styles.documentPicker} onPress={handlePickDocument} activeOpacity={0.85}>
+              <TouchableOpacity
+                style={styles.documentPicker}
+                onPress={handlePickDocument}
+                activeOpacity={0.85}
+              >
                 <Text style={styles.documentPickerText}>
                   {document ? `Document: ${document.name}` : 'Attach research document'}
                 </Text>
               </TouchableOpacity>
 
-              <Button title="Create Project" onPress={handleCreateProject} loading={createMutation.isPending} />
+              <Button
+                title="Create Project"
+                onPress={handleCreateProject}
+                loading={createMutation.isPending}
+              />
             </View>
           </View>
         }
@@ -140,12 +160,14 @@ export const ResearchListScreen: React.FC<ResearchListScreenProps> = ({ navigati
             activeOpacity={0.85}
           >
             <Text style={styles.projectTitle}>{item.title}</Text>
-            <Text style={styles.projectLead}>Lead: {item.lead.firstName} {item.lead.lastName}</Text>
+            <Text style={styles.projectLead}>
+              Lead: {item.lead.firstName} {item.lead.lastName}
+            </Text>
             <Text style={styles.projectDescription} numberOfLines={3}>
               {item.description}
             </Text>
             <Text style={styles.projectMeta}>
-              {item.collaborators.length} collaborators · {item.tags.join(', ') || 'No tags yet'}
+              {item.collaborators.length} collaborators - {item.tags.join(', ') || 'No tags yet'}
             </Text>
           </TouchableOpacity>
         )}

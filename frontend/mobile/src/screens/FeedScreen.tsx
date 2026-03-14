@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Alert, Share } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../navigation/types';
+import { MainStackParamList, TabParamList } from '../navigation/types';
 import { api } from '../services/api';
 import { Post } from '../types';
 import { PostCard } from '../components/PostCard';
@@ -11,7 +13,10 @@ import { EmptyState } from '../components/EmptyState';
 import { colors, spacing } from '../theme/tokens';
 
 type FeedScreenProps = {
-  navigation: NativeStackNavigationProp<MainStackParamList, 'Feed'>;
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<TabParamList, 'Feed'>,
+    NativeStackNavigationProp<MainStackParamList>
+  >;
 };
 
 export const FeedScreen: React.FC<FeedScreenProps> = ({ navigation }) => {

@@ -1,15 +1,30 @@
 import React from 'react';
-import { TextInput as RNTextInput, StyleSheet, View, Text, TextInputProps } from 'react-native';
+import {
+  TextInput as RNTextInput,
+  StyleProp,
+  StyleSheet,
+  View,
+  ViewStyle,
+  Text,
+  TextInputProps,
+} from 'react-native';
 import { colors, spacing, radius, typography } from '../theme/tokens';
 
 interface CustomTextInputProps extends TextInputProps {
   label?: string;
   error?: string;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
-export const TextInput: React.FC<CustomTextInputProps> = ({ label, error, style, ...props }) => {
+export const TextInput: React.FC<CustomTextInputProps> = ({
+  label,
+  error,
+  style,
+  containerStyle,
+  ...props
+}) => {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <RNTextInput
         style={[styles.input, error && styles.inputError, style]}

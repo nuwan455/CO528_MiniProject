@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/form-validation";
 import { ApiResponse, NotificationRecord } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast-provider";
+import { useAuthStore } from "@/store/auth";
 import { Bell, CheckCircle2, MessageSquare, Briefcase, FlaskConical, CalendarDays } from "lucide-react";
 
 const notificationIconMap: Record<string, typeof MessageSquare> = {
@@ -19,17 +21,31 @@ const notificationIconMap: Record<string, typeof MessageSquare> = {
 };
 
 export default function NotificationsPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
   const { showToast } = useToast();
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadNotifications = async () => {
-    const { data } = await api.get<ApiResponse<NotificationRecord[]>>("/notifications");
-    setNotifications(data.data);
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const { data } = await api.get<ApiResponse<NotificationRecord[]>>("/notifications");
+      setNotifications(data.data);
+    } catch (error) {
+      const message = getApiErrorMessage(error, "Unable to load your notifications.");
+      setLoadError(message);
+      showToast({ title: "Notifications unavailable", description: message, variant: "error" });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadNotifications().catch(() => undefined);
+    void loadNotifications();
   }, []);
 
   const visibleNotifications = useMemo(
@@ -38,6 +54,27 @@ export default function NotificationsPage() {
   );
 
   const unreadCount = notifications.filter((notification) => !notification.isRead).length;
+
+  const resolveNotificationHref = (notification: NotificationRecord) => {
+    if (!notification.relatedEntityId || !notification.relatedEntityType) {
+      return null;
+    }
+
+    switch (notification.relatedEntityType) {
+      case "CONVERSATION":
+        return `/messages?conversationId=${notification.relatedEntityId}`;
+      case "JOB":
+        return user?.role === "ADMIN"
+          ? `/jobs?applications=${notification.relatedEntityId}`
+          : "/jobs";
+      case "RESEARCH_PROJECT":
+        return `/research?project=${notification.relatedEntityId}`;
+      case "EVENT":
+        return `/events?event=${notification.relatedEntityId}`;
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="mx-auto max-w-3xl py-8">
@@ -61,6 +98,7 @@ export default function NotificationsPage() {
           <Button
             variant="outline"
             className="gap-2"
+            disabled={!unreadCount || isLoading}
             onClick={async () => {
               try {
                 await api.patch("/notifications/read-all");
@@ -83,22 +121,41 @@ export default function NotificationsPage() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y divide-border/50">
-            {visibleNotifications.length ? (
+            {isLoading ? (
+              <div className="p-6 text-sm text-muted-foreground">Loading notifications...</div>
+            ) : loadError ? (
+              <div className="flex flex-col items-start gap-3 p-6">
+                <p className="text-sm text-muted-foreground">{loadError}</p>
+                <Button type="button" variant="outline" onClick={() => void loadNotifications()}>
+                  Retry
+                </Button>
+              </div>
+            ) : visibleNotifications.length ? (
               visibleNotifications.map((notification) => {
                 const Icon = notificationIconMap[notification.type] ?? Bell;
+                const href = resolveNotificationHref(notification);
 
                 return (
                   <button
+                    type="button"
                     key={notification.id}
                     className={`flex w-full items-start gap-4 p-4 text-left transition-colors hover:bg-accent/30 ${!notification.isRead ? "bg-primary/5" : ""}`}
                     onClick={async () => {
-                      if (notification.isRead) {
+                      if (notification.isRead && href) {
+                        router.push(href);
                         return;
                       }
 
                       try {
-                        await api.patch(`/notifications/${notification.id}/read`);
-                        await loadNotifications();
+                        if (!notification.isRead) {
+                          await api.patch(`/notifications/${notification.id}/read`);
+                          setNotifications((current) =>
+                            current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item)),
+                          );
+                        }
+                        if (href) {
+                          router.push(href);
+                        }
                       } catch (error) {
                         showToast({ title: "Update failed", description: getApiErrorMessage(error, "Unable to mark notification as read."), variant: "error" });
                       }
@@ -118,6 +175,7 @@ export default function NotificationsPage() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                       </p>
+                      {href ? <p className="mt-2 text-xs font-medium text-primary">Open related item</p> : null}
                     </div>
                     {!notification.isRead ? <div className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" /> : null}
                   </button>

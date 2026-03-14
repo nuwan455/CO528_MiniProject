@@ -8,7 +8,9 @@ import {
   Linking,
   Alert,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainStackParamList } from '../navigation/types';
 import { api } from '../services/api';
@@ -21,9 +23,19 @@ import { useAuthStore } from '../store/authStore';
 
 type ResearchDetailScreenProps = {
   route: RouteProp<MainStackParamList, 'ResearchDetail'>;
+  navigation: NativeStackNavigationProp<MainStackParamList, 'ResearchDetail'>;
 };
 
-export const ResearchDetailScreen: React.FC<ResearchDetailScreenProps> = ({ route }) => {
+type SelectedDocument = {
+  uri: string;
+  name: string;
+  type: string;
+};
+
+export const ResearchDetailScreen: React.FC<ResearchDetailScreenProps> = ({
+  route,
+  navigation,
+}) => {
   const { projectId } = route.params;
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -31,6 +43,11 @@ export const ResearchDetailScreen: React.FC<ResearchDetailScreenProps> = ({ rout
   const [inviteRole, setInviteRole] = useState('Collaborator');
   const [results, setResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [tags, setTags] = useState('');
+  const [document, setDocument] = useState<SelectedDocument | null>(null);
 
   const { data: project } = useQuery({
     queryKey: ['research-project', projectId],
@@ -78,11 +95,123 @@ export const ResearchDetailScreen: React.FC<ResearchDetailScreenProps> = ({ rout
     },
   });
 
+  const updateProjectMutation = useMutation({
+    mutationFn: async () => {
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      let uploadedDocument: { documentUrl?: string } | undefined;
+      if (document) {
+        const uploadResponse = await api.uploadDocument(document);
+        uploadedDocument = uploadResponse.data;
+      }
+
+      return api.updateResearchProject(projectId, {
+        title: title.trim(),
+        description: description.trim(),
+        tags: tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+        documentUrl: uploadedDocument?.documentUrl ?? project.documentUrl,
+      });
+    },
+    onSuccess: async () => {
+      setIsEditing(false);
+      setDocument(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['research-project', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['research-projects'] }),
+        queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+      ]);
+      Alert.alert('Project updated', 'Your research project changes are now live.');
+    },
+    onError: () => {
+      Alert.alert('Update failed', 'Unable to update this research project right now.');
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => api.deleteResearchProject(projectId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['research-projects'] }),
+        queryClient.invalidateQueries({ queryKey: ['research-project', projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+      ]);
+      Alert.alert('Project deleted', 'The research project has been removed.');
+      navigation.goBack();
+    },
+    onError: () => {
+      Alert.alert('Delete failed', 'Unable to delete this research project right now.');
+    },
+  });
+
+  const startEditing = () => {
+    if (!project) {
+      return;
+    }
+
+    setTitle(project.title);
+    setDescription(project.description);
+    setTags(project.tags.join(', '));
+    setDocument(null);
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setDocument(null);
+  };
+
+  const handlePickDocument = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/*', 'text/*', 'image/*'],
+      copyToCacheDirectory: true,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    setDocument({
+      uri: asset.uri,
+      name: asset.name,
+      type: asset.mimeType || 'application/octet-stream',
+    });
+  };
+
+  const handleSaveProject = () => {
+    if (!title.trim() || !description.trim()) {
+      Alert.alert('Missing details', 'Project title and description are required.');
+      return;
+    }
+
+    updateProjectMutation.mutate();
+  };
+
+  const confirmDeleteProject = () => {
+    Alert.alert(
+      'Delete research project?',
+      'This will permanently remove the project and its collaborator setup from the platform.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteProjectMutation.mutate(),
+        },
+      ],
+    );
+  };
+
   if (!project) {
     return null;
   }
 
-  const canManage = project.lead.id === user?.id;
+  const canManage = Boolean(user && (project.lead.id === user.id || user.role === 'ADMIN'));
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -98,11 +227,83 @@ export const ResearchDetailScreen: React.FC<ResearchDetailScreenProps> = ({ rout
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Shared Document</Text>
         {project.documentUrl ? (
-          <Button title="Open Document" onPress={() => Linking.openURL(project.documentUrl as string)} />
+          <Button
+            title="Open Document"
+            onPress={() => Linking.openURL(project.documentUrl as string)}
+          />
         ) : (
           <Text style={styles.emptyText}>No shared document yet.</Text>
         )}
       </View>
+
+      {canManage ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Manage Project</Text>
+          <Text style={styles.helperText}>
+            Update the project details, share a new document, or remove the collaboration space.
+          </Text>
+          <View style={styles.actions}>
+            <Button
+              title={isEditing ? 'Cancel Edit' : 'Edit Project'}
+              onPress={isEditing ? cancelEditing : startEditing}
+              variant="secondary"
+              style={styles.actionButton}
+            />
+            <Button
+              title={deleteProjectMutation.isPending ? 'Deleting...' : 'Delete Project'}
+              onPress={confirmDeleteProject}
+              loading={deleteProjectMutation.isPending}
+              disabled={deleteProjectMutation.isPending}
+              style={[styles.actionButton, styles.deleteButton]}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {canManage && isEditing ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Edit Research Project</Text>
+          <TextInput value={title} onChangeText={setTitle} placeholder="Project title" />
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Describe the project scope and collaboration goals"
+            multiline
+            numberOfLines={4}
+            style={styles.textArea}
+          />
+          <TextInput value={tags} onChangeText={setTags} placeholder="Tags, comma separated" />
+
+          <TouchableOpacity
+            style={styles.documentPicker}
+            onPress={handlePickDocument}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.documentPickerText}>
+              {document
+                ? `Document: ${document.name}`
+                : project.documentUrl
+                  ? 'Replace shared document'
+                  : 'Attach research document'}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.actions}>
+            <Button
+              title="Cancel"
+              onPress={cancelEditing}
+              variant="secondary"
+              style={styles.actionButton}
+            />
+            <Button
+              title={updateProjectMutation.isPending ? 'Saving...' : 'Save Changes'}
+              onPress={handleSaveProject}
+              loading={updateProjectMutation.isPending}
+              style={styles.actionButton}
+            />
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Collaborators</Text>
@@ -119,7 +320,7 @@ export const ResearchDetailScreen: React.FC<ResearchDetailScreenProps> = ({ rout
                   {collaborator.user.firstName} {collaborator.user.lastName}
                 </Text>
                 <Text style={styles.collaboratorRole}>
-                  {collaborator.roleInProject} · {collaborator.user.email}
+                  {collaborator.roleInProject} - {collaborator.user.email}
                 </Text>
               </View>
             </View>
@@ -152,7 +353,7 @@ export const ResearchDetailScreen: React.FC<ResearchDetailScreenProps> = ({ rout
                   {candidate.firstName} {candidate.lastName}
                 </Text>
                 <Text style={styles.resultMeta}>
-                  {candidate.email} · {candidate.role}
+                  {candidate.email} - {candidate.role}
                 </Text>
               </View>
               <TouchableOpacity
@@ -214,8 +415,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: spacing.base,
   },
+  helperText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.sm,
+    lineHeight: typography.fontSize.sm * typography.lineHeight.normal,
+    marginBottom: spacing.base,
+  },
   emptyText: {
     color: colors.textSecondary,
+    fontSize: typography.fontSize.base,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  deleteButton: {
+    backgroundColor: colors.danger,
+  },
+  textArea: {
+    minHeight: 110,
+    textAlignVertical: 'top',
+  },
+  documentPicker: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceElevated,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.base,
+    marginBottom: spacing.base,
+  },
+  documentPickerText: {
+    color: colors.textPrimary,
     fontSize: typography.fontSize.base,
   },
   collaboratorRow: {

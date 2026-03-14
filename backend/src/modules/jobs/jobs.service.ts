@@ -75,6 +75,14 @@ export class JobsService {
       throw new ForbiddenException('Admins cannot apply for jobs');
     }
 
+    const job = await this.prisma.job.findUnique({
+      where: { id },
+      select: { id: true, title: true, postedByUserId: true },
+    });
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
     const application = await this.prisma.jobApplication.upsert({
       where: { jobId_applicantId: { jobId: id, applicantId: user.sub } },
       update: { resumeUrl: dto.resumeUrl, coverLetter: dto.coverLetter, status: ApplicationStatus.APPLIED },
@@ -91,11 +99,30 @@ export class JobsService {
         userId: user.sub,
         type: 'JOB_APPLICATION',
         title: 'Application submitted',
-        body: 'Your application has been submitted.',
+        body: `Your application for "${job.title}" has been submitted.`,
         relatedEntityType: 'JOB',
         relatedEntityId: id,
       },
     });
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: Role.ADMIN, id: { not: user.sub } },
+      select: { id: true },
+    });
+    const recipientIds = admins.map((admin) => admin.id).filter((recipientId) => recipientId !== user.sub);
+
+    if (recipientIds.length) {
+      await this.prisma.notification.createMany({
+        data: recipientIds.map((recipientId) => ({
+          userId: recipientId,
+          type: 'JOB_APPLICATION',
+          title: 'New job application received',
+          body: `${user.email} applied for "${job.title}".`,
+          relatedEntityType: 'JOB',
+          relatedEntityId: id,
+        })),
+      });
+    }
 
     return { message: 'Application submitted successfully', data: application };
   }
@@ -104,7 +131,20 @@ export class JobsService {
     await this.ensureOwnership(id, user);
     const items = await this.prisma.jobApplication.findMany({
       where: { jobId: id },
-      include: { applicant: { select: { id: true, name: true, email: true, headline: true } } },
+      include: {
+        applicant: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            headline: true,
+            department: true,
+            batchYear: true,
+            profileImageUrl: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
     return { message: 'Applications fetched successfully', data: items };

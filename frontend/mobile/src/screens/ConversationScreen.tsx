@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { RouteProp } from '@react-navigation/native';
@@ -18,6 +18,7 @@ type ConversationScreenProps = {
 export const ConversationScreen: React.FC<ConversationScreenProps> = ({ route }) => {
   const { conversationId } = route.params;
   const [message, setMessage] = useState('');
+  const listRef = useRef<FlatList<Message> | null>(null);
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
 
@@ -50,6 +51,18 @@ export const ConversationScreen: React.FC<ConversationScreenProps> = ({ route })
     <MessageBubble message={item} isCurrentUser={item.sender.id === user?.id} />
   );
 
+  useEffect(() => {
+    if (!messages?.length) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToEnd({ animated: false });
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [messages?.length]);
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -57,11 +70,11 @@ export const ConversationScreen: React.FC<ConversationScreenProps> = ({ route })
       keyboardVerticalOffset={90}
     >
       <FlatList
+        ref={listRef}
         data={messages || []}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        inverted
       />
 
       <View style={styles.inputContainer}>
@@ -69,6 +82,7 @@ export const ConversationScreen: React.FC<ConversationScreenProps> = ({ route })
           value={message}
           onChangeText={setMessage}
           placeholder="Type a message..."
+          containerStyle={styles.inputWrapper}
           style={styles.input}
         />
         <Button title="Send" onPress={handleSend} loading={sendMutation.isPending} size="sm" />
@@ -94,8 +108,13 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     alignItems: 'center',
   },
-  input: {
+  inputWrapper: {
     flex: 1,
     marginBottom: 0,
+  },
+  input: {
+    backgroundColor: colors.surfaceElevated,
+    borderColor: colors.borderLight,
+    minHeight: 44,
   },
 });

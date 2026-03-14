@@ -13,7 +13,7 @@ export function isStudent(user?: Pick<User, "role"> | null) {
 }
 
 export function canPostJobs(user?: Pick<User, "role"> | null) {
-  return isAdmin(user) || isAlumni(user);
+  return isAdmin(user);
 }
 
 export function canApplyJobs(user?: Pick<User, "role"> | null) {

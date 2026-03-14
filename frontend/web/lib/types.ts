@@ -98,6 +98,18 @@ export interface JobRecord {
   };
 }
 
+export interface JobApplicationRecord {
+  id: string;
+  resumeUrl?: string | null;
+  coverLetter?: string | null;
+  status: "APPLIED" | "REVIEWING" | "ACCEPTED" | "REJECTED";
+  createdAt: string;
+  applicant: Pick<WebUser, "id" | "name" | "email" | "role" | "headline" | "profileImageUrl"> & {
+    department?: string | null;
+    batchYear?: number | null;
+  };
+}
+
 export interface AdminUserRecord {
   id: string;
   name: string;

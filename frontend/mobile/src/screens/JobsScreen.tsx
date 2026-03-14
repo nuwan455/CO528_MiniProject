@@ -22,7 +22,7 @@ type JobsScreenProps = {
 
 export const JobsScreen: React.FC<JobsScreenProps> = ({ navigation }) => {
   const user = useAuthStore((state) => state.user);
-  const canPostJobs = user?.role === 'ADMIN' || user?.role === 'ALUMNI';
+  const canPostJobs = user?.role === 'ADMIN';
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['jobs'],
@@ -48,9 +48,9 @@ export const JobsScreen: React.FC<JobsScreenProps> = ({ navigation }) => {
           <View style={styles.header}>
             <Text style={styles.title}>Career Opportunities</Text>
             <Text style={styles.subtitle}>
-              {canPostJobs
-                ? 'Browse opportunities or add a new one for students and alumni.'
-                : 'Browse internships and jobs posted by alumni and admins.'}
+              {user?.role === 'ADMIN'
+                ? 'Review submitted applications or publish official opportunities for the department.'
+                : 'Browse internships and jobs posted by admins, then apply from mobile.'}
             </Text>
             {canPostJobs ? (
               <Button title="Add Job" onPress={() => navigation.navigate('CreateJob')} />

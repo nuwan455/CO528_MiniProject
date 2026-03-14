@@ -53,7 +53,7 @@ const resolveApiBaseUrl = () => {
   return 'http://localhost:4000/api/v1';
 };
 
-const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const resolveAssetUrl = (assetUrl?: string | null) => {
   if (!assetUrl) {

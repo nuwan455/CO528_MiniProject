@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, A
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/types';
 import { useAuthStore } from '../store/authStore';
+import { API_BASE_URL } from '../services/api';
 import { TextInput } from '../components/TextInput';
 import { Button } from '../components/Button';
 import { colors, spacing, typography } from '../theme/tokens';
@@ -29,7 +30,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     try {
       await login(normalizedEmail, password);
     } catch (error: any) {
-      Alert.alert('Login Failed', error.response?.data?.message || 'Invalid credentials');
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.data?.message ||
+        (error?.message === 'Network Error' ? `Cannot reach backend API at ${API_BASE_URL}.` : error?.message) ||
+        'Invalid credentials';
+      Alert.alert('Login Failed', message);
     } finally {
       setLoading(false);
     }

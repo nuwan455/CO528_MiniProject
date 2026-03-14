@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, S
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../navigation/types';
 import { useAuthStore } from '../store/authStore';
+import { API_BASE_URL } from '../services/api';
 import { TextInput } from '../components/TextInput';
 import { Button } from '../components/Button';
 import { colors, spacing, typography } from '../theme/tokens';
@@ -55,7 +56,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) =>
         responseData?.data?.message ||
         responseData?.errors?.[0] ||
         (error?.message === 'Network Error'
-          ? 'Cannot reach backend API. Check EXPO_PUBLIC_API_BASE_URL and backend status.'
+          ? `Cannot reach backend API at ${API_BASE_URL}.`
           : error?.message) ||
         'An error occurred';
       Alert.alert('Registration Failed', message);

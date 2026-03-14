@@ -22,7 +22,7 @@ copy .env.example .env
 EXPO_PUBLIC_API_TARGET=emulator
 EXPO_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1
 EXPO_PUBLIC_API_LAN_BASE_URL=http://192.168.1.10:4000/api/v1
-EXPO_PUBLIC_API_REMOTE_BASE_URL=https://your-server.example.com/api/v1
+EXPO_PUBLIC_API_REMOTE_BASE_URL=https://140.245.230.95.sslip.io/api/v1
 ```
 
 ## API Modes
@@ -72,7 +72,13 @@ npx eas build -p android --profile preview-local
 
 ### Remote Server APK
 
-Update `eas.json` with your actual deployed backend URL, then build:
+The remote profile is already configured to use:
+
+```text
+https://140.245.230.95.sslip.io/api/v1
+```
+
+Build with:
 
 ```bash
 npx eas build -p android --profile preview-remote

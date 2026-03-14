@@ -1,98 +1,91 @@
 # DECP Mobile App
 
-Department Engagement & Career Platform - Mobile companion app for students, alumni, and admins.
-
-## Features
-
-- **Authentication**: Secure login and registration
-- **Feed**: Browse and interact with posts from the community
-- **Jobs & Internships**: Discover and apply to opportunities
-- **Events**: Browse events and RSVP
-- **Messaging**: Direct messaging with other users
-- **Research Projects**: Collaborate on research initiatives
-- **Notifications**: Stay updated with real-time notifications
-- **Profile Management**: Manage your professional profile
-
-## Tech Stack
-
-- **React Native** with Expo
-- **TypeScript** for type safety
-- **React Navigation** for routing
-- **TanStack Query** for server state management
-- **Zustand** for auth state
-- **Axios** for API calls
-- **React Hook Form** for form handling
+Department Engagement & Career Platform mobile app built with Expo and React Native.
 
 ## Setup
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
-2. Configure environment:
-The `.env` file is already set up with:
+2. Create your local environment file from the example:
+
+```bash
+copy .env.example .env
 ```
+
+3. Choose the API target in `.env`:
+
+```env
+EXPO_PUBLIC_API_TARGET=emulator
 EXPO_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1
+EXPO_PUBLIC_API_LAN_BASE_URL=http://192.168.1.10:4000/api/v1
+EXPO_PUBLIC_API_REMOTE_BASE_URL=https://your-server.example.com/api/v1
 ```
 
-Update this URL to point to your backend API.
+## API Modes
 
-3. Run the app:
+- `emulator`: for Android emulator or iOS simulator. `localhost` becomes `10.0.2.2` on Android automatically.
+- `lan`: for a real phone APK talking to your backend running on your PC over Wi-Fi.
+- `remote`: for a deployed backend server.
 
-**iOS:**
+## Run Locally
+
+Android emulator:
+
 ```bash
-npm run ios
-```
-
-**Android:**
-```bash
+npm start
 npm run android
 ```
 
-**Web:**
+Real phone on same Wi-Fi:
+
 ```bash
-npm run web
+# set EXPO_PUBLIC_API_TARGET=lan in .env
+npm start
 ```
 
-## Project Structure
+Make sure your backend is reachable from your phone using your PC's LAN IP, for example:
 
-```
-src/
-├── components/       # Reusable UI components
-├── navigation/       # Navigation setup
-├── screens/          # Screen components
-├── services/         # API service layer
-├── store/            # Global state (Zustand)
-├── theme/            # Design tokens
-├── types/            # TypeScript types
-└── utils/            # Utility functions
+```env
+EXPO_PUBLIC_API_LAN_BASE_URL=http://192.168.1.10:4000/api/v1
 ```
 
-## API Integration
+## Build APK with EAS
 
-The app connects to the backend API at the configured base URL. All endpoints are abstracted through the `api` service in `src/services/api.ts`.
+Log in and configure EAS once:
 
-## Design System
+```bash
+npx eas login
+npx eas build:configure
+```
 
-The app uses a premium dark theme with:
-- Near-black graphite backgrounds
-- Soft white primary text
-- Electric blue-violet accents
-- Consistent spacing scale
-- Minimal surfaces with subtle depth
+### Local/LAN APK
 
-## State Management
+Update `eas.json` with your actual LAN IP, then build:
 
-- **Auth State**: Managed with Zustand (`useAuthStore`)
-- **Server State**: Managed with TanStack Query
-- **Token Management**: Automatic refresh with interceptors
+```bash
+npx eas build -p android --profile preview-local
+```
 
-## Key Features
+### Remote Server APK
 
-- Optimistic UI updates for likes and RSVPs
-- Pull-to-refresh on all list screens
-- Automatic token refresh
-- Offline error handling
-- Clean empty states
-- Accessible touch targets
+Update `eas.json` with your actual deployed backend URL, then build:
+
+```bash
+npx eas build -p android --profile preview-remote
+```
+
+### Production AAB
+
+```bash
+npx eas build -p android --profile production
+```
+
+## Files
+
+- `src/services/api.ts`: runtime API target resolver
+- `.env.example`: local environment template
+- `eas.json`: EAS build profiles for LAN and remote builds

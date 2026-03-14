@@ -3,13 +3,47 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { ApiResponse, Comment, Conversation, Event, Job, JobApplication, Message, Notification, Post, ResearchProject, User } from '../types';
 
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
+
+const normalizeAndroidLoopbackUrl = (value: string) =>
+  value.replace('://localhost', '://10.0.2.2').replace('://127.0.0.1', '://10.0.2.2');
+
 const resolveApiBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-  if (envUrl) {
-    if (Platform.OS === 'android') {
-      return envUrl.replace('localhost', '10.0.2.2').replace('127.0.0.1', '10.0.2.2');
+  const target = process.env.EXPO_PUBLIC_API_TARGET?.trim().toLowerCase();
+  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  const lanUrl = process.env.EXPO_PUBLIC_API_LAN_BASE_URL?.trim();
+  const remoteUrl = process.env.EXPO_PUBLIC_API_REMOTE_BASE_URL?.trim();
+
+  if (target === 'remote' && remoteUrl) {
+    return trimTrailingSlash(remoteUrl);
+  }
+
+  if (target === 'lan' && lanUrl) {
+    return trimTrailingSlash(lanUrl);
+  }
+
+  if (target === 'emulator') {
+    if (baseUrl) {
+      return Platform.OS === 'android'
+        ? normalizeAndroidLoopbackUrl(trimTrailingSlash(baseUrl))
+        : trimTrailingSlash(baseUrl);
     }
-    return envUrl;
+
+    return Platform.OS === 'android' ? 'http://10.0.2.2:4000/api/v1' : 'http://localhost:4000/api/v1';
+  }
+
+  if (baseUrl) {
+    return Platform.OS === 'android'
+      ? normalizeAndroidLoopbackUrl(trimTrailingSlash(baseUrl))
+      : trimTrailingSlash(baseUrl);
+  }
+
+  if (Platform.OS === 'android' && lanUrl) {
+    return trimTrailingSlash(lanUrl);
+  }
+
+  if (remoteUrl) {
+    return trimTrailingSlash(remoteUrl);
   }
 
   if (Platform.OS === 'android') {

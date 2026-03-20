@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Briefcase, GraduationCap } from "lucide-react";
 import api from "@/lib/api";
 import { getApiErrorMessage, validateLoginForm } from "@/lib/form-validation";
 import { ApiResponse, WebUser } from "@/lib/types";
@@ -95,11 +96,19 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/20 via-primary/10 to-card shadow-lg shadow-primary/10">
+            <div className="relative">
+              <GraduationCap className="h-8 w-8 text-primary" />
+              <div className="absolute -bottom-1 -right-2 flex h-6 w-6 items-center justify-center rounded-full border border-primary/20 bg-background shadow-sm">
+                <Briefcase className="h-3 w-3 text-primary" />
+              </div>
+            </div>
+          </div>
           <h1 className="mb-2 text-4xl font-bold tracking-tight text-primary">DECP.</h1>
           <p className="text-muted-foreground">Department Engagement & Career Platform</p>
         </div>
 
-        <Card className="border-border/50 bg-card/50 shadow-2xl backdrop-blur-xl">
+        <Card className="border-primary/25 bg-card/70 shadow-2xl shadow-black/30 ring-1 ring-white/6 backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="text-2xl">Welcome back</CardTitle>
             <CardDescription>Enter your credentials to access your account</CardDescription>
